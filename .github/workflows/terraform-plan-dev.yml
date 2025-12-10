@@ -55,3 +55,5 @@ jobs:
         with:
           name: tfplan-dev
           path: infra/gcp/envs/dev/tfplan
+
+          # trigger terraform plan

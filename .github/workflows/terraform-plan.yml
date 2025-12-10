@@ -1,0 +1,64 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/gcp/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  PROJECT_ID: massive-sandbox-477717-k3
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan (${{ matrix.env }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - env: dev
+            service_account_prefix: github-terraform-dev
+          - env: staging
+            service_account_prefix: github-terraform-staging
+          - env: prod
+            service_account_prefix: github-terraform-prod
+
+    defaults:
+      run:
+        working-directory: infra/gcp/${{ matrix.env }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Authenticate to GCP (Workload Identity)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ matrix.service_account_prefix }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config=backend.hcl -input=false
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan -input=false -no-color
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.env }}
+          path: infra/gcp/${{ matrix.env }}/tfplan

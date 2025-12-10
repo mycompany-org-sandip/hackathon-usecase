@@ -1,4 +1,18 @@
-.DS*
-.class*
-.jar
-.ear
+
+# Node
+node_modules/
+package-lock.json
+
+# Java
+target/
+*.jar
+*.class
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+
+# VSCode
+.vscode/
+
+.DS_Store

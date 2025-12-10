@@ -1,0 +1,14 @@
+image:
+  repository: gcr.io/massive-sandbox-477717-k3/application-service
+  tag: "1.0"
+  imagePullPolicy: IfNotPresent
+service:
+  port: 3001
+replicaCount: 1
+resources: {}
+env: []
+global:
+  imagePullSecrets: []
+  keyvault:
+    enabled: false  # or true if you want it enabled
+

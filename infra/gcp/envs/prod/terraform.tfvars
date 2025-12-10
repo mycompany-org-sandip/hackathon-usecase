@@ -1,0 +1,19 @@
+project_id  = "massive-sandbox-477717-k3"
+region      = "asia-south1"
+environment = "prod"
+
+cluster_name = "prod-gke"
+repo_name    = "prod"
+
+cidr_block = 30
+
+private_subnet_names        = ["prod-subnet"]
+private_subnet_cidr_blocks = ["10.30.0.0/20"]
+
+public_subnet_names        = []
+public_subnet_cidr_blocks = []
+
+firewall_ssh_source_ranges = ["0.0.0.0/0"]
+
+allow_http  = true
+allow_https = true

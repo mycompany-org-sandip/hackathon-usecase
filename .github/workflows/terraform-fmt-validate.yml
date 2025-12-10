@@ -1,0 +1,35 @@
+name: Terraform Fmt & Validate
+
+on:
+  pull_request:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        env: [dev, staging, prod]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      # --- FORMAT ROOT + ALL MODULES ---
+      - name: Terraform Format (recursive)
+        run: terraform fmt -recursive
+
+      # --- INIT PER ENV WITHOUT BACKEND ---
+      - name: Terraform Init (${{ matrix.env }})
+        run: |
+          cd infra/gcp/${{ matrix.env }}
+          terraform init -backend=false
+
+      # --- VALIDATE PER ENV ---
+      - name: Terraform Validate (${{ matrix.env }})
+        run: |
+          cd infra/gcp/${{ matrix.env }}
+          terraform validate

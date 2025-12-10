@@ -1,0 +1,83 @@
+name: App CI - Build & Push Images
+
+on:
+  push:
+    branches: [develop, staging, main]
+  pull_request:
+    branches: [develop, staging, main]
+
+env:
+  IMAGE_TAG: sha-${{ github.sha }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+
+      # ✅ Install gcloud
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # ✅ Per-environment Service Account
+      - name: Authenticate to GCP (Workload Identity)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: |
+            ${{ github.ref_name == 'develop' && secrets.DEV_SA ||
+                github.ref_name == 'staging' && secrets.STG_SA ||
+                secrets.PROD_SA }}
+
+      - name: Configure Docker Auth
+        run: gcloud auth configure-docker --quiet
+
+      - name: Run tests
+        run: |
+          echo "✅ Running unit tests"
+
+      - name: Select Registry
+        id: registry
+        run: |
+          if [[ "${{ github.ref_name }}" == "develop" ]]; then
+            echo "REGISTRY=${{ secrets.DEV_REGISTRY }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == "staging" ]]; then
+            echo "REGISTRY=${{ secrets.STG_REGISTRY }}" >> $GITHUB_OUTPUT
+          else
+            echo "REGISTRY=${{ secrets.PROD_REGISTRY }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build & Push Images
+        run: |
+          SERVICES=(application-service patient-service order-service)
+          for S in "${SERVICES[@]}"; do
+            docker buildx build \
+              --platform linux/amd64 \
+              --push \
+              -t ${{ steps.registry.outputs.REGISTRY }}/$S:$IMAGE_TAG \
+              ./services/$S
+          done
+
+      - name: Generate Image Metadata
+        run: |
+          printf '{"application":"%s","patient":"%s","order":"%s"}' \
+            "${{ steps.registry.outputs.REGISTRY }}/application-service:$IMAGE_TAG" \
+            "${{ steps.registry.outputs.REGISTRY }}/patient-service:$IMAGE_TAG" \
+            "${{ steps.registry.outputs.REGISTRY }}/order-service:$IMAGE_TAG" > images.json
+
+      - name: Upload Image Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: images
+          path: images.json

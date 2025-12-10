@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev]
     paths:
-      - 'infra/gcp/**'
+      - 'infra/gcp/envs/dev/**'
 
 permissions:
   id-token: write
@@ -20,7 +20,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: infra/gcp/dev
+        working-directory: infra/gcp/envs/dev
 
     steps:
       - name: Checkout

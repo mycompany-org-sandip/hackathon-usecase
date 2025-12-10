@@ -16,3 +16,9 @@ target/
 .vscode/
 
 .DS_Store
+
+# Terraform state
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate
+*.tfstate.backup

@@ -1,10 +1,10 @@
-name: Terraform Apply
+name: Terraform Apply - Staging & Prod
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'infra/gcp/**'
+  workflow_run:
+    workflows: ["Terraform Plan - Staging & Prod"]
+    types:
+      - completed
 
 permissions:
   id-token: write
@@ -21,9 +21,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - env: dev
-            service_account_prefix: github-terraform-dev
-            environment: dev
           - env: staging
             service_account_prefix: github-terraform-staging
             environment: staging

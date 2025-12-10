@@ -1,8 +1,8 @@
-name: Terraform Plan
+name: Terraform Plan - Dev
 
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches: [dev]
     paths:
       - 'infra/gcp/**'
 
@@ -15,22 +15,12 @@ env:
 
 jobs:
   terraform-plan:
-    name: Terraform Plan (${{ matrix.env }})
+    name: Terraform Plan (dev)
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        include:
-          - env: dev
-            service_account_prefix: github-terraform-dev
-          - env: staging
-            service_account_prefix: github-terraform-staging
-          - env: prod
-            service_account_prefix: github-terraform-prod
 
     defaults:
       run:
-        working-directory: infra/gcp/${{ matrix.env }}
+        working-directory: infra/gcp/dev
 
     steps:
       - name: Checkout
@@ -45,7 +35,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ matrix.service_account_prefix }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Terraform Init
@@ -60,5 +50,5 @@ jobs:
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-${{ matrix.env }}
-          path: infra/gcp/${{ matrix.env }}/tfplan
+          name: tfplan-dev
+          path: infra/gcp/dev/tfplan

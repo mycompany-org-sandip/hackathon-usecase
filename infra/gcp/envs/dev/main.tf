@@ -108,6 +108,8 @@ module "gke" {
   network    = module.network.vpc_self_link
   subnetwork = module.network.private_subnet_self_links[0]
 }
+# -------------------------------
+
 
 
 

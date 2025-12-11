@@ -12,6 +12,9 @@ env:
 jobs:
   terraform-apply:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     defaults:
       run:
         working-directory: infra/gcp/envs/dev

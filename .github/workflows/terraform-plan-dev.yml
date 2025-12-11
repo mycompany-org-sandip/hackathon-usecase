@@ -5,8 +5,8 @@ on:
     branches: [dev]
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write       # Required for OIDC/WIF
+  contents: read        # Required to checkout code
 
 env:
   PROJECT_ID: massive-sandbox-477717-k3
@@ -30,7 +30,7 @@ jobs:
       - name: Authenticate to GCP via WIF
         uses: google-github-actions/auth@v2
         with:
-          # Full provider path with project number
+          # Full provider path (project number) stored as secret
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
           service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}

@@ -2,43 +2,33 @@ name: Terraform Apply - Prod
 
 on:
   push:
-    branches: [main]   # or prod branch
+    branches: [main]  # or 'prod'
     paths:
       - 'infra/gcp/envs/prod/**'
-
-permissions:
-  id-token: write
-  contents: read
 
 env:
   PROJECT_ID: massive-sandbox-477717-k3
 
 jobs:
   terraform-apply:
-    name: Terraform Apply (prod)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: infra/gcp/envs/prod
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
 
-      - name: Authenticate to GCP (Workload Identity)
+      - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_PROD }}
           service_account: github-terraform-prod@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Terraform Init
-        run: terraform init -backend-config=backend.hcl -input=false
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -input=false
+      - run: terraform init -backend-config=backend.hcl -input=false
+      - run: terraform apply -auto-approve -input=false

@@ -2,46 +2,33 @@ name: Terraform Plan - Prod
 
 on:
   push:
-    branches: [main]   # or prod branch
-
-permissions:
-  id-token: write
-  contents: read
+    branches: [main]   # or 'prod'
 
 env:
   PROJECT_ID: massive-sandbox-477717-k3
 
 jobs:
   terraform-plan:
-    name: Terraform Plan (prod)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: infra/gcp/envs/prod
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
 
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_PROD }}
           service_account: github-terraform-prod@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
-          token_format: access_token
+          project_id: ${{ env.PROJECT_ID }}
 
       - run: terraform fmt -recursive
       - run: terraform init -backend-config=backend.hcl -input=false
       - run: terraform validate -no-color
       - run: terraform plan -out=tfplan -input=false -no-color
-
-      - name: Upload Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-prod
-          path: infra/gcp/envs/prod/tfplan

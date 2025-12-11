@@ -1,8 +1,8 @@
-name: Terraform Plan - Dev
+name: Terraform Plan - Prod
 
 on:
   push:
-    branches: [dev]
+    branches: [main]   # or prod branch
 
 permissions:
   id-token: write
@@ -13,11 +13,11 @@ env:
 
 jobs:
   terraform-plan:
-    name: Terraform Plan (dev)
+    name: Terraform Plan (prod)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: infra/gcp/envs/dev
+        working-directory: infra/gcp/envs/prod
 
     steps:
       - name: Checkout
@@ -32,7 +32,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          service_account: github-terraform-prod@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           token_format: access_token
 
       - run: terraform fmt -recursive
@@ -43,5 +43,5 @@ jobs:
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-dev
-          path: infra/gcp/envs/dev/tfplan
+          name: tfplan-prod
+          path: infra/gcp/envs/prod/tfplan

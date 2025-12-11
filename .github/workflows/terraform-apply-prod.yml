@@ -1,10 +1,10 @@
-name: Terraform Apply - Staging & Prod
+name: Terraform Apply - Prod
 
 on:
-  workflow_run:
-    workflows: ["Terraform Plan - Staging & Prod"]
-    types:
-      - completed
+  push:
+    branches: [main]   # or prod branch
+    paths:
+      - 'infra/gcp/envs/prod/**'
 
 permissions:
   id-token: write
@@ -15,26 +15,11 @@ env:
 
 jobs:
   terraform-apply:
-    name: Terraform Apply (${{ matrix.env }})
+    name: Terraform Apply (prod)
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        include:
-          - env: staging
-            service_account_prefix: github-terraform-staging
-            environment: staging
-          - env: prod
-            service_account_prefix: github-terraform-prod
-            environment: prod
-
-    environment:
-      name: ${{ matrix.environment }}
-      # You can enable required reviewers in GitHub repo settings for extra protection
-
     defaults:
       run:
-        working-directory: infra/gcp/envs/${{ matrix.env }}
+        working-directory: infra/gcp/envs/prod
 
     steps:
       - name: Checkout
@@ -49,7 +34,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ matrix.service_account_prefix }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          service_account: github-terraform-prod@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Terraform Init

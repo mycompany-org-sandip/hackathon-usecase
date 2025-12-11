@@ -3,11 +3,10 @@ name: Terraform Plan - Dev
 on:
   push:
     branches: [dev]
-    paths:
-      - 'infra/gcp/envs/dev/**'
+  workflow_dispatch:  # allows manual trigger if needed
 
 permissions:
-  id-token: write
+  id-token: write       # required for Workload Identity
   contents: read
 
 env:
@@ -23,14 +22,17 @@ jobs:
         working-directory: infra/gcp/envs/dev
 
     steps:
+      # Step 1: Checkout code
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Step 2: Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
 
+      # Step 3: Authenticate to GCP using Workload Identity
       - name: Authenticate to GCP (Workload Identity)
         uses: google-github-actions/auth@v2
         with:
@@ -38,22 +40,25 @@ jobs:
           service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
 
+      # Step 4: Terraform format
       - name: Terraform Format
         run: terraform fmt -recursive
 
+      # Step 5: Terraform init
       - name: Terraform Init
         run: terraform init -backend-config=backend.hcl -input=false
 
+      # Step 6: Terraform validate
       - name: Terraform Validate
         run: terraform validate -no-color
 
+      # Step 7: Terraform plan
       - name: Terraform Plan
         run: terraform plan -out=tfplan -input=false -no-color
 
+      # Step 8: Upload plan artifact
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-dev
           path: infra/gcp/envs/dev/tfplan
-
-          # trigger terraform plan

@@ -13,7 +13,5 @@ output "repository_url" {
   value       = "${google_artifact_registry_repository.repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}"
 }
 
-output "repository_self_link" {
-  description = "Self link of the repository"
-  value       = google_artifact_registry_repository.repo.self_link
-}
+// Note: google_artifact_registry_repository does not export `self_link`.
+// Removing this output to avoid unsupported attribute errors.

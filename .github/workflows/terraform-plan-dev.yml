@@ -31,7 +31,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          audience: ${{ secrets.WIF_AUDIENCE_DEV }}
           service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true

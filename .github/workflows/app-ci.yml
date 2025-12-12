@@ -2,9 +2,9 @@ name: App CI - Build & Push Images
 
 on:
   push:
-    branches: [develop, staging, main]
+    branches: [dev, staging, main]
   pull_request:
-    branches: [develop, staging, main]
+    branches: [dev, staging, main]
 
 env:
   IMAGE_TAG: sha-${{ github.sha }}
@@ -36,7 +36,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: |
-            ${{ github.ref_name == 'develop' && secrets.DEV_SA ||
+            ${{ github.ref_name == 'dev' && secrets.DEV_SA ||
                 github.ref_name == 'staging' && secrets.STG_SA ||
                 secrets.PROD_SA }}
 
@@ -50,7 +50,7 @@ jobs:
       - name: Select Registry
         id: registry
         run: |
-          if [[ "${{ github.ref_name }}" == "develop" ]]; then
+          if [[ "${{ github.ref_name }}" == "dev" ]]; then
             echo "REGISTRY=${{ secrets.DEV_REGISTRY }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == "staging" ]]; then
             echo "REGISTRY=${{ secrets.STG_REGISTRY }}" >> $GITHUB_OUTPUT

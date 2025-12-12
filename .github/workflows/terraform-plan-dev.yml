@@ -33,6 +33,7 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
           service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
+          audience: ${{ secrets.WIF_PROVIDER_DEV }}
           create_credentials_file: true
           export_environment_variables: true
           token_format: "access_token"

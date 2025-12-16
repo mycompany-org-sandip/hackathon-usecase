@@ -1,7 +1,7 @@
 resource "google_compute_network" "vpc" {
-  name                    = "${var.network_name}-${var.environment}"
+  name                    = "${var.environment}-${var.network_name}"
   project                 = var.project_id
-  auto_create_subnetworks = var.auto_create_subnetworks
+  auto_create_subnetworks = false
   routing_mode            = "GLOBAL"
   description             = "Primary VPC for ${var.environment} workloads"
 }
@@ -17,23 +17,17 @@ resource "google_compute_subnetwork" "public" {
 }
 
 resource "google_compute_subnetwork" "private" {
-  count                    = length(var.private_subnet_cidr_blocks)
-  name                     = "${var.private_subnet_names[count.index]}-${var.environment}"
-  ip_cidr_range            = var.private_subnet_cidr_blocks[count.index]
-  region                   = var.region
-  network                  = google_compute_network.vpc.id
-  private_ip_google_access = true
-  project                  = var.project_id
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  count         = length(var.private_subnet_cidr_blocks)
+  name          = "${var.private_subnet_names[count.index]}-${var.environment}"
+  ip_cidr_range = var.private_subnet_cidr_blocks[count.index]
+  region        = var.region
+  network       = google_compute_network.vpc.id
+  project       = var.project_id
 }
-
 
 resource "google_compute_firewall" "internal" {
   name    = "${var.network_name}-${var.environment}-allow-internal"
-  network = google_compute_network.vpc.name
+  network = google_compute_network.vpc.self_link
   project = var.project_id
 
   allow {
@@ -50,15 +44,12 @@ resource "google_compute_firewall" "internal" {
     protocol = "icmp"
   }
 
-  source_ranges = concat(
-    var.public_subnet_cidr_blocks,
-    var.private_subnet_cidr_blocks
-  )
+  source_ranges = concat(var.public_subnet_cidr_blocks, var.private_subnet_cidr_blocks)
 }
 
 resource "google_compute_firewall" "ssh" {
   name    = "${var.network_name}-${var.environment}-allow-ssh"
-  network = google_compute_network.vpc.name
+  network = google_compute_network.vpc.self_link
   project = var.project_id
 
   allow {
@@ -67,13 +58,12 @@ resource "google_compute_firewall" "ssh" {
   }
 
   source_ranges = var.firewall_ssh_source_ranges
-  target_tags   = ["ssh"]
 }
 
 resource "google_compute_firewall" "http" {
   count   = var.allow_http ? 1 : 0
   name    = "${var.network_name}-${var.environment}-allow-http"
-  network = google_compute_network.vpc.name
+  network = google_compute_network.vpc.self_link
   project = var.project_id
 
   allow {
@@ -88,7 +78,7 @@ resource "google_compute_firewall" "http" {
 resource "google_compute_firewall" "https" {
   count   = var.allow_https ? 1 : 0
   name    = "${var.network_name}-${var.environment}-allow-https"
-  network = google_compute_network.vpc.name
+  network = google_compute_network.vpc.self_link
   project = var.project_id
 
   allow {
@@ -103,7 +93,7 @@ resource "google_compute_firewall" "https" {
 resource "google_compute_router" "router" {
   name    = "${var.network_name}-${var.environment}-router"
   project = var.project_id
-  network = google_compute_network.vpc.id
+  network = google_compute_network.vpc.self_link
   region  = var.region
 }
 

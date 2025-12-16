@@ -1,13 +1,21 @@
-resource "google_artifact_registry_repository" "repo" {
+# Check for existing repo
+data "google_artifact_registry_repository" "existing" {
   provider      = google
-  location      = var.region          # e.g., "us-central1"
-  repository_id = var.repo_name       # e.g., "dev-docker"
-  format        = "DOCKER"
-  description   = "Artifact registry for ${var.repo_name}"
-
-  lifecycle {
-    #prevent_destroy = true            # prevent accidental deletion
-  }
+  for_each      = { "repo" = var.repo_name }
+  project       = var.project_id
+  location      = var.region
+  repository_id = each.value
 }
 
+resource "google_artifact_registry_repository" "repo" {
+  count        = length(data.google_artifact_registry_repository.existing) == 0 ? 1 : 0
+  provider     = google
+  location     = var.region
+  repository_id = var.repo_name
+  format       = "DOCKER"
+  description  = "Artifact registry for ${var.repo_name}"
 
+  lifecycle {
+    prevent_destroy = true
+  }
+}

@@ -58,32 +58,25 @@ module "iam" {
 # -------------------------------
 # Secret Manager Module
 # -------------------------------
-module "secrets" {
+module "secret_manager" {
   source     = "../../modules/secret_manager"
   project_id = var.project_id
 
-  secrets = {
-    "db-connection" = {
-      replication   = { automatic = true }
-      initial_value = ""
-      labels        = { env = var.environment }
-    }
-    "api-key" = {
-      replication   = { automatic = true }
-      initial_value = ""
-      labels        = { env = var.environment }
-    }
-  }
+  secrets = [
+    "api-key",
+    "db-connection"
+  ]
 
   access_bindings = {
-    "db-connection" = [
-      "serviceAccount:${module.iam.service_account_emails["app-runner"]}"
-    ]
     "api-key" = [
-      "serviceAccount:${module.iam.service_account_emails["app-runner"]}"
+      "serviceAccount:${var.app_runner_sa}"
+    ]
+    "db-connection" = [
+      "serviceAccount:${var.app_runner_sa}"
     ]
   }
 }
+
 
 # -------------------------------
 # Artifact Registry
@@ -114,6 +107,27 @@ module "gke" {
 # -------------------------------
 #output "network_info" {
 
+variable "secrets" {
+  type    = map(any)
+  default = {
+    "api-key"        = null
+    "db-connection"  = null
+  }
+}
+
+resource "google_secret_manager_secret" "secrets" {
+  for_each = var.secrets
+
+  secret_id = each.key
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
 
 
 

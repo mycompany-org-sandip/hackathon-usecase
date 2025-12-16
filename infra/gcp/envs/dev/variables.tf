@@ -1,10 +1,12 @@
 variable "project_id" {
-  type = string
+  description = "GCP project ID"
+  type        = string
 }
 
 variable "region" {
-  type    = string
-  default = "asia-south1"
+  description = "GCP region"
+  type        = string
+  default     = "asia-south1"
 }
 
 variable "environment" {
@@ -12,11 +14,13 @@ variable "environment" {
 }
 
 variable "cluster_name" {
-  type = string
+  description = "GKE cluster name"
+  type        = string
 }
 
 variable "repo_name" {
-  type = string
+  description = "Artifact Registry repository name"
+  type        = string
 }
 
 variable "cidr_block" {
@@ -54,4 +58,9 @@ variable "allow_http" {
 variable "allow_https" {
   type    = bool
   default = true
+}
+
+variable "app_runner_sa" {
+  description = "Service account used by applications"
+  type        = string
 }

@@ -1,4 +1,5 @@
 project_id  = "massive-sandbox-477717-k3"
+app_runner_sa = "app-runner@massive-sandbox-477717-k3.iam.gserviceaccount.com"
 region      = "asia-south1"
 environment = "dev"
 

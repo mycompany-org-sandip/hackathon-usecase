@@ -4,15 +4,8 @@ variable "project_id" {
 }
 
 variable "secrets" {
-  description = "Map of secrets to create with replication and initial values"
-  type = map(object({
-    replication = object({
-      automatic = bool
-      locations = optional(list(string), [])
-    })
-    initial_value = optional(string, "")
-    labels        = optional(map(string), {})
-  }))
+  description = "Secrets to manage"
+  type        = set(string)
 }
 
 variable "access_bindings" {

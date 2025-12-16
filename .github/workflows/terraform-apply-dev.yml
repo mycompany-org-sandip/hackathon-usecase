@@ -2,7 +2,7 @@ name: Terraform Apply - Dev
 
 on:
   push:
-    branches: [ "dev" ]
+    branches: ["dev"]
     paths:
       - "infra/gcp/envs/dev/**"
       - "infra/gcp/modules/**"
@@ -22,8 +22,7 @@ jobs:
         working-directory: infra/gcp/envs/dev
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -36,20 +35,19 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
           service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
-          audience: ${{ secrets.WIF_PROVIDER_DEV }}
           create_credentials_file: true
           export_environment_variables: true
-          token_format: "access_token"
-
-
-      - name: Download tfplan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-dev
-          path: infra/gcp/envs/dev
 
       - name: Terraform Init
         run: terraform init -backend-config=backend.hcl -input=false
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve
+
+      - name: Save Terraform outputs
+        run: terraform output -json > tf_outputs.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tf-outputs-dev
+          path: tf_outputs.json

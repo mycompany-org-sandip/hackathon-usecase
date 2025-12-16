@@ -1,11 +1,10 @@
 name: App CD - Deploy to GKE via Helm
 
 on:
-  push:
-    branches:
-      - dev
-      - staging
-      - main
+  workflow_run:
+    workflows: ["App CI - Build & Push Images"]
+    types:
+      - completed
   workflow_dispatch:
 
 concurrency:
@@ -14,19 +13,18 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to GKE via Helm (${{ matrix.environment }})
+    name: Deploy to GKE via Helm
     runs-on: ubuntu-latest
-    environment: ${{ matrix.environment }}
 
     strategy:
       matrix:
         include:
           - environment: dev
-            branch: develop
+            branch: dev
             registry_secret: DEV_REGISTRY
             cluster_secret: DEV_GKE_CLUSTER
             region_secret: DEV_GKE_REGION
-            service_account_secret: DEV_SA         # secret containing dev service account email
+            service_account_secret: DEV_SA
             helm_timeout: 10m
           - environment: staging
             branch: staging
@@ -48,11 +46,10 @@ jobs:
       id-token: write
 
     steps:
-      - name: Only run on matching branch or manual dispatch
+      - name: Only run on matching branch
         id: should_deploy
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
-             [[ "${{ github.ref_name }}" == "${{ matrix.branch }}" ]]; then
+          if [[ "${{ github.ref_name }}" == "${{ matrix.branch }}" ]]; then
             echo "deploy=true" >> $GITHUB_OUTPUT
           else
             echo "deploy=false" >> $GITHUB_OUTPUT
@@ -69,15 +66,13 @@ jobs:
           name: images
           path: images
 
-      # Authenticate using Workload Identity (KEYLESS) - per-env service account
-      - name: Authenticate to GCP (Workload Identity)
+      - name: Authenticate to GCP (WIF)
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets[ matrix.service_account_secret ] }}
 
-      # Get GKE credentials (uses the credentials issued by the previous step)
       - name: Get GKE credentials
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: google-github-actions/get-gke-credentials@v0
@@ -86,40 +81,19 @@ jobs:
           location: ${{ secrets[ matrix.region_secret ] }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      # Install tools: jq and helm (helm action is safer)
-      - name: Install jq
-        if: steps.should_deploy.outputs.deploy == 'true'
-        run: |
-          sudo apt-get update && sudo apt-get install -y jq
-
       - name: Setup Helm
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: azure/setup-helm@v3
-
-      - name: Install helm-diff plugin (best-effort)
-        if: steps.should_deploy.outputs.deploy == 'true'
-        run: |
-          helm plugin list | grep diff || helm plugin install https://github.com/databus23/helm-diff
 
       - name: Prepare image tags
         if: steps.should_deploy.outputs.deploy == 'true'
         id: imgs
         run: |
-          if [[ -f "images/images.json" ]]; then
-            cp images/images.json ./images.json
-          elif [[ -f "images.json" ]]; then
-            echo "Using images.json at repo root"
-          else
-            echo "ERROR: images.json not found" >&2
-            exit 1
-          fi
-
-          # Expecting full image ref: registry/org/name:tag
+          cp images/images.json ./images.json
           APP_IMG=$(jq -r '.application' images.json)
           PAT_IMG=$(jq -r '.patient' images.json)
           ORD_IMG=$(jq -r '.order' images.json)
 
-          # Split into repo and tag
           APP_REPO="${APP_IMG%:*}"
           APP_TAG="${APP_IMG##*:}"
           PAT_REPO="${PAT_IMG%:*}"
@@ -133,19 +107,6 @@ jobs:
           echo "patient_tag=${PAT_TAG}" >> $GITHUB_OUTPUT
           echo "order_repo=${ORD_REPO}" >> $GITHUB_OUTPUT
           echo "order_tag=${ORD_TAG}" >> $GITHUB_OUTPUT
-
-      - name: Helm diff (preview)
-        if: steps.should_deploy.outputs.deploy == 'true'
-        working-directory: helm/umbrella
-        run: |
-          helm diff upgrade hackathon-umbrella . \
-            --namespace "${{ matrix.environment }}" \
-            --set application-service.image.repository=${{ steps.imgs.outputs.app_repo }} \
-            --set application-service.image.tag=${{ steps.imgs.outputs.app_tag }} \
-            --set patient-service.image.repository=${{ steps.imgs.outputs.patient_repo }} \
-            --set patient-service.image.tag=${{ steps.imgs.outputs.patient_tag }} \
-            --set order-service.image.repository=${{ steps.imgs.outputs.order_repo }} \
-            --set order-service.image.tag=${{ steps.imgs.outputs.order_tag }} || true
 
       - name: Helm upgrade (apply)
         if: steps.should_deploy.outputs.deploy == 'true'
@@ -161,29 +122,3 @@ jobs:
             --set patient-service.image.tag=${{ steps.imgs.outputs.patient_tag }} \
             --set order-service.image.repository=${{ steps.imgs.outputs.order_repo }} \
             --set order-service.image.tag=${{ steps.imgs.outputs.order_tag }}
-
-      - name: Notify Success
-        if: success() && steps.should_deploy.outputs.deploy == 'true'
-        run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            payload=$(jq -n --arg env "${{ matrix.environment }}" --arg sha "${{ github.sha }}" '{text:("✅ GKE Deployment Successful: "+$env+" - "+$sha)}')
-            curl -s -X POST -H 'Content-type: application/json' --data "$payload" "${{ secrets.SLACK_WEBHOOK_URL }}"
-          fi
-
-      - name: Rollback on Failure
-        if: failure() && steps.should_deploy.outputs.deploy == 'true'
-        run: |
-          # try best-effort rollback to previous revision if available
-          REV=$(helm history hackathon-umbrella -n "${{ matrix.environment }}" --max 2 --output json | jq -r '.[0].revision // empty')
-          if [ -n "$REV" ]; then
-            PREV=$((REV-1))
-            echo "Rolling back to revision $PREV"
-            helm rollback hackathon-umbrella "$PREV" -n "${{ matrix.environment }}" || true
-          else
-            echo "No previous revision found; nothing to rollback"
-          fi
-
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            payload=$(jq -n --arg env "${{ matrix.environment }}" --arg sha "${{ github.sha }}" '{text:("❌ GKE Deployment Failed - Rollback Triggered: "+$env+" - "+$sha)}')
-            curl -s -X POST -H 'Content-type: application/json' --data "$payload" "${{ secrets.SLACK_WEBHOOK_URL }}" || true
-          fi

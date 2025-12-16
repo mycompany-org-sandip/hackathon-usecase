@@ -1,10 +1,10 @@
 name: App CI - Build & Push Images
 
 on:
-  push:
-    branches: [dev, staging, main]
-  pull_request:
-    branches: [dev, staging, main]
+  workflow_run:
+    workflows: ["Terraform Apply - Dev"]
+    types:
+      - completed
 
 env:
   IMAGE_TAG: sha-${{ github.sha }}
@@ -17,7 +17,6 @@ jobs:
   build-and-push:
     name: Build & Push (${{ github.ref_name }})
     runs-on: ubuntu-latest
-
     environment: ${{ github.ref_name }}
 
     steps:
@@ -26,39 +25,34 @@ jobs:
       - uses: docker/setup-qemu-action@v2
       - uses: docker/setup-buildx-action@v2
 
-      # ✅ Install gcloud
+      # Install gcloud
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # ✅ Per-environment Service Account
-      - name: Authenticate to GCP (Workload Identity)
+      # Authenticate only on push
+      - name: Authenticate to GCP (WIF)
+        if: github.event_name == 'workflow_run'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: |
-            ${{ github.ref_name == 'dev' && secrets.DEV_SA ||
-                github.ref_name == 'staging' && secrets.STG_SA ||
-                secrets.PROD_SA }}
+          service_account: ${{ secrets.DEV_SA }}
 
       - name: Configure Docker Auth
+        if: github.event_name == 'workflow_run'
         run: gcloud auth configure-docker --quiet
 
+      # Run tests
       - name: Run tests
-        run: |
-          echo "✅ Running unit tests"
+        run: echo "✅ Running unit tests"
 
+      # Select registry
       - name: Select Registry
         id: registry
-        run: |
-          if [[ "${{ github.ref_name }}" == "dev" ]]; then
-            echo "REGISTRY=${{ secrets.DEV_REGISTRY }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref_name }}" == "staging" ]]; then
-            echo "REGISTRY=${{ secrets.STG_REGISTRY }}" >> $GITHUB_OUTPUT
-          else
-            echo "REGISTRY=${{ secrets.PROD_REGISTRY }}" >> $GITHUB_OUTPUT
-          fi
+        run: echo "REGISTRY=${{ secrets.DEV_REGISTRY }}" >> $GITHUB_OUTPUT
 
+      # Build & push images
       - name: Build & Push Images
+        if: github.event_name == 'workflow_run'
         run: |
           SERVICES=(application-service patient-service order-service)
           for S in "${SERVICES[@]}"; do
@@ -69,6 +63,7 @@ jobs:
               ./services/$S
           done
 
+      # Generate image metadata
       - name: Generate Image Metadata
         run: |
           printf '{"application":"%s","patient":"%s","order":"%s"}' \
@@ -76,6 +71,7 @@ jobs:
             "${{ steps.registry.outputs.REGISTRY }}/patient-service:$IMAGE_TAG" \
             "${{ steps.registry.outputs.REGISTRY }}/order-service:$IMAGE_TAG" > images.json
 
+      # Upload metadata artifact
       - name: Upload Image Metadata
         uses: actions/upload-artifact@v4
         with:

@@ -1,7 +1,3 @@
-# -------------------------------
-# General Project Variables
-# -------------------------------
-
 variable "project_id" {
   description = "GCP project ID"
   type        = string
@@ -14,8 +10,7 @@ variable "region" {
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod)"
-  type        = string
+  type = string
 }
 
 variable "cluster_name" {
@@ -28,53 +23,52 @@ variable "repo_name" {
   type        = string
 }
 
-variable "cidr_block" {
-  description = "CIDR block number for subnet addressing"
-  type        = number # ✅ FIXED
+variable "artifact_region" {
+  description = "Region for Artifact Registry"
+  type        = string
+  default     = "us-central1"
 }
 
-# -------------------------------
-# Network Variables
-# -------------------------------
 
 variable "public_subnet_names" {
-  description = "List of public subnet names"
-  type        = list(string)
-  default     = []
+  type    = list(string)
+  default = []
 }
 
 variable "public_subnet_cidr_blocks" {
-  description = "List of public subnet CIDR blocks"
-  type        = list(string)
-  default     = []
+  type    = list(string)
+  default = []
 }
 
 variable "private_subnet_names" {
-  description = "List of private subnet names"
-  type        = list(string)
-  # ✅ NO DEFAULT (must come from tfvars)
+  type = list(string)
 }
 
 variable "private_subnet_cidr_blocks" {
-  description = "List of private subnet CIDR blocks"
-  type        = list(string)
-  # ✅ NO DEFAULT (must come from tfvars)
+  type = list(string)
 }
 
 variable "firewall_ssh_source_ranges" {
-  description = "Source ranges allowed for SSH"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
+  type    = list(string)
+  default = ["0.0.0.0/0"]
 }
 
 variable "allow_http" {
-  description = "Enable HTTP traffic"
-  type        = bool
-  default     = true
+  type    = bool
+  default = true
 }
 
 variable "allow_https" {
-  description = "Enable HTTPS traffic"
-  type        = bool
-  default     = true
+  type    = bool
+  default = true
+}
+
+variable "app_runner_sa" {
+  description = "Service account used by applications"
+  type        = string
+}
+
+variable "node_service_account" {
+  type        = string
+  description = "Service account for GKE nodes"
 }

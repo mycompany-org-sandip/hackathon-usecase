@@ -14,3 +14,6 @@ public_subnet_cidr_blocks = []
 firewall_ssh_source_ranges = ["0.0.0.0/0"]
 allow_http                 = true
 allow_https                = true
+
+app_runner_sa = "app-runner@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+node_service_account = "gke-nodes@massive-sandbox-477717-k3.iam.gserviceaccount.com"

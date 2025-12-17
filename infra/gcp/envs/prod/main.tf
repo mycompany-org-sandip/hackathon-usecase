@@ -1,4 +1,5 @@
 terraform {
+  backend "gcs" {}
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -64,28 +65,25 @@ module "iam" {
 
 # -------------------------------
 
-module "secrets" {
+module "secret_manager" {
   source     = "../../modules/secret_manager"
   project_id = var.project_id
 
-  secrets = {
-    "db-connection" = {
-      replication   = { automatic = true }
-      initial_value = ""
-      labels        = { env = var.environment }
-    }
-    "api-key" = {
-      replication   = { automatic = true }
-      initial_value = ""
-      labels        = { env = var.environment }
-    }
-  }
+  secrets = [
+    "api-key",
+    "db-connection"
+  ]
 
   access_bindings = {
-    "db-connection" = ["serviceAccount:${module.iam.service_account_emails["app-runner"]}"]
-    "api-key"       = ["serviceAccount:${module.iam.service_account_emails["app-runner"]}"]
+    "api-key" = [
+      "serviceAccount:${var.app_runner_sa}"
+    ]
+    "db-connection" = [
+      "serviceAccount:${var.app_runner_sa}"
+    ]
   }
 }
+
 
 # -------------------------------
 
@@ -94,13 +92,12 @@ module "secrets" {
 # -------------------------------
 
 module "artifact_registry" {
-  source      = "../../modules/artifact_registry"
-  project_id  = var.project_id
-  environment = var.environment
-  repo_name   = var.repo_name
-  region      = var.region
+  source          = "../../modules/artifact_registry"
+  project_id      = var.project_id
+  environment     = var.environment
+  repo_name       = var.repo_name
+  artifact_region = var.artifact_region
 }
-
 # -------------------------------
 
 # GKE Module
@@ -108,13 +105,14 @@ module "artifact_registry" {
 # -------------------------------
 
 module "gke" {
-  source       = "../../modules/gke"
-  project_id   = var.project_id
-  cluster_name = var.cluster_name
-  region       = var.region
+  source = "../../modules/gke"
 
-  network    = module.network.vpc_self_link
-  subnetwork = module.network.private_subnet_self_links[0]
+  project_id           = var.project_id
+  region               = var.region
+  cluster_name         = var.cluster_name
+  network              = module.network.network_name
+  subnetwork           = module.network.private_subnet_names[0]
+  node_service_account = var.node_service_account
 }
 
 # -------------------------------

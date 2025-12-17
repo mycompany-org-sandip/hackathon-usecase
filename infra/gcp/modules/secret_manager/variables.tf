@@ -11,4 +11,8 @@ variable "secrets" {
 variable "access_bindings" {
   description = "IAM bindings for each secret. secret_name => [members]"
   type        = map(list(string))
+  default     = {}
 }
+
+
+

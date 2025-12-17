@@ -32,17 +32,17 @@ output "private_subnet_self_links" {
 
 output "gke_cluster_name" {
   description = "Name of the GKE cluster"
-  value       = module.gke.cluster_name
+  value       = var.enable_gke ? module.gke[0].cluster_name : null
 }
 
 output "gke_cluster_endpoint" {
   description = "Endpoint of the GKE cluster"
-  value       = module.gke.endpoint
+  value       = var.enable_gke ? module.gke[0].endpoint : null
 }
 
 output "gke_cluster_master_auth" {
   description = "Master authentication info for the cluster"
-  value       = module.gke.master_auth
+  value       = var.enable_gke ? module.gke[0].master_auth : null
 }
 
 # ------------------------------

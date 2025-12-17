@@ -14,6 +14,8 @@ provider "google" {
   region  = var.region
 }
 
+## Removed default service account lookup to avoid IAM permission issues
+
 # -------------------------------
 
 # Network Module
@@ -64,27 +66,14 @@ module "iam" {
 
 # -------------------------------
 
-module "secrets" {
+module "secret_manager" {
   source     = "../../modules/secret_manager"
   project_id = var.project_id
 
-  secrets = {
-    "db-connection" = {
-      replication   = { automatic = true }
-      initial_value = ""
-      labels        = { env = var.environment }
-    }
-    "api-key" = {
-      replication   = { automatic = true }
-      initial_value = ""
-      labels        = { env = var.environment }
-    }
-  }
-
-  access_bindings = {
-    "db-connection" = ["serviceAccount:${module.iam.service_account_emails["app-runner"]}"]
-    "api-key"       = ["serviceAccount:${module.iam.service_account_emails["app-runner"]}"]
-  }
+  secrets = [
+    "api-key",
+    "db-connection"
+  ]
 }
 
 # -------------------------------
@@ -98,23 +87,20 @@ module "artifact_registry" {
   project_id  = var.project_id
   environment = var.environment
   repo_name   = var.repo_name
-  region      = var.region
+  artifact_region = var.region
 }
-
-# -------------------------------
-
-# GKE Module
-
 # -------------------------------
 
 module "gke" {
+  count        = var.enable_gke ? 1 : 0
   source       = "../../modules/gke"
   project_id   = var.project_id
   cluster_name = var.cluster_name
   region       = var.region
 
-  network    = module.network.vpc_self_link
-  subnetwork = module.network.private_subnet_self_links[0]
+  network              = module.network.vpc_self_link
+  subnetwork           = module.network.private_subnet_self_links[0]
+  node_service_account = var.app_runner_sa
 }
 
 # -------------------------------

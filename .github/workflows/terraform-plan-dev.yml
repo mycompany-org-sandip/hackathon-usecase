@@ -16,6 +16,7 @@ concurrency:
 jobs:
   terraform-plan-dev:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     defaults:
       run:

@@ -28,10 +28,7 @@ variable "repo_name" {
   type        = string
 }
 
-variable "cidr_block" {
-  description = "CIDR block number for subnet addressing"
-  type        = number # ✅ FIXED
-}
+## Removed unused variable: cidr_block
 
 # -------------------------------
 # Network Variables
@@ -78,3 +75,22 @@ variable "allow_https" {
   type        = bool
   default     = true
 }
+
+ 
+variable "enable_gke" {
+  description = "Whether to provision GKE cluster and node pool"
+  type        = bool
+  default     = false
+}
+
+
+variable "app_runner_sa" {
+  description = "Service account used by applications"
+  type        = string
+}
+
+variable "node_service_account" {
+  type        = string
+  description = "Service account for GKE nodes"
+}
+

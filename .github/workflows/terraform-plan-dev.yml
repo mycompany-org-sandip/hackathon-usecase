@@ -7,15 +7,16 @@ on:
       - "infra/gcp/modules/**"
 
 permissions:
-  id-token: write
   contents: read
 
-env:
-  PROJECT_ID: massive-sandbox-477717-k3
+concurrency:
+  group: terraform-plan-dev-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   terraform-plan-dev:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: infra/gcp/envs/dev
@@ -27,29 +28,19 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.0
+          terraform_version: 1.6.6
 
-      - name: Authenticate to GCP (WIF)
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
-          project_id: ${{ env.PROJECT_ID }}
-          audience: ${{ secrets.WIF_PROVIDER_DEV }}
-          create_credentials_file: true
-          export_environment_variables: true
-          token_format: "access_token"
+      - name: Terraform Init (no backend)
+        run: terraform init -backend=false -input=false
 
-
-      - name: Terraform Init
-        run: terraform init -backend-config=backend.hcl -input=false
+      - name: Terraform Validate
+        run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan -input=false -no-color
+        run: terraform plan -no-color
 
-      - name: Upload Terraform Plan
+      - name: Upload Terraform Plan Output
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-dev
-          path: infra/gcp/envs/dev/tfplan
-#hjhj#
+          name: terraform-plan-dev
+          path: infra/gcp/envs/dev/.terraform

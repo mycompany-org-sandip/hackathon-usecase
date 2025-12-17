@@ -4,8 +4,8 @@ variable "project_id" {
 }
 
 variable "secrets" {
-  description = "Secrets to manage"
-  type        = set(string)
+  description = "Secrets to manage as key -> secret_id"
+  type        = map(string)
 }
 
 variable "access_bindings" {

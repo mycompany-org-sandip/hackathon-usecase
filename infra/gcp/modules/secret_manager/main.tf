@@ -1,5 +1,5 @@
 resource "google_secret_manager_secret" "secrets" {
-  for_each = var.secrets
+  for_each  = var.secrets
   project   = var.project_id
   secret_id = each.key
 
@@ -25,8 +25,8 @@ resource "google_secret_manager_secret_iam_member" "members" {
   for_each = local.iam_bindings
   project  = var.project_id
   # Reference the created secret to establish dependency and correct ID
-  secret_id = google_secret_manager_secret.secrets[each.value.secret].id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = each.value.member
+  secret_id  = google_secret_manager_secret.secrets[each.value.secret].id
+  role       = "roles/secretmanager.secretAccessor"
+  member     = each.value.member
   depends_on = [google_secret_manager_secret.secrets]
 }

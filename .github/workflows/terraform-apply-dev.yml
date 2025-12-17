@@ -21,7 +21,7 @@ concurrency:
 jobs:
   terraform-apply-dev:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     defaults:
       run:

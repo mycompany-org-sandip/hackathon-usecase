@@ -69,10 +69,10 @@ module "secret_manager" {
   source     = "../../modules/secret_manager"
   project_id = var.project_id
 
-  secrets = [
-    "api-key",
-    "db-connection"
-  ]
+  secrets = {
+    "api-key"       = "api-key"
+    "db-connection" = "db-connection"
+  }
 
   access_bindings = {
     "api-key" = [

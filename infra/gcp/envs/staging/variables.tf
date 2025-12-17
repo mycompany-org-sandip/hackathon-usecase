@@ -30,7 +30,7 @@ variable "repo_name" {
 
 variable "cidr_block" {
   description = "CIDR block number for subnet addressing"
-  type        = number   # ✅ FIXED
+  type        = number # ✅ FIXED
 }
 
 # -------------------------------

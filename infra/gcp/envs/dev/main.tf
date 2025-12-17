@@ -22,33 +22,33 @@ provider "google" {
 # Required APIs (ensure default SAs and services exist)
 # -------------------------------
 resource "google_project_service" "compute" {
-  project             = var.project_id
-  service             = "compute.googleapis.com"
-  disable_on_destroy  = false
+  project            = var.project_id
+  service            = "compute.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_project_service" "container" {
-  project             = var.project_id
-  service             = "container.googleapis.com"
-  disable_on_destroy  = false
+  project            = var.project_id
+  service            = "container.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_project_service" "iamcredentials" {
-  project             = var.project_id
-  service             = "iamcredentials.googleapis.com"
-  disable_on_destroy  = false
+  project            = var.project_id
+  service            = "iamcredentials.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_project_service" "iam" {
-  project             = var.project_id
-  service             = "iam.googleapis.com"
-  disable_on_destroy  = false
+  project            = var.project_id
+  service            = "iam.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_project_service" "serviceusage" {
-  project             = var.project_id
-  service             = "serviceusage.googleapis.com"
-  disable_on_destroy  = false
+  project            = var.project_id
+  service            = "serviceusage.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "time_sleep" "wait_for_compute_sa" {
@@ -68,10 +68,10 @@ module "network" {
   network_name            = "vpc-dev"
   auto_create_subnetworks = false
 
-  public_subnet_names        = var.public_subnet_names
+  public_subnet_names       = var.public_subnet_names
   public_subnet_cidr_blocks = var.public_subnet_cidr_blocks
 
-  private_subnet_names        = var.private_subnet_names
+  private_subnet_names       = var.private_subnet_names
   private_subnet_cidr_blocks = var.private_subnet_cidr_blocks
 
   firewall_ssh_source_ranges = var.firewall_ssh_source_ranges
@@ -90,7 +90,7 @@ module "iam" {
   service_accounts = {
     app-runner = {
       display_name = "Dev App Runner"
-      roles        = [
+      roles = [
         "roles/container.admin",
         "roles/logging.logWriter"
       ]
@@ -125,10 +125,10 @@ module "secret_manager" {
 # Artifact Registry
 # -------------------------------
 module "artifact_registry" {
-  source      = "../../modules/artifact_registry"
-  project_id  = var.project_id
-  environment = var.environment
-  repo_name   = var.repo_name
+  source          = "../../modules/artifact_registry"
+  project_id      = var.project_id
+  environment     = var.environment
+  repo_name       = var.repo_name
   artifact_region = var.artifact_region
 }
 
@@ -140,11 +140,11 @@ module "artifact_registry" {
 module "gke" {
   source = "../../modules/gke"
 
-  project_id   = var.project_id
-  region       = var.region
-  cluster_name = var.cluster_name
-  network      = module.network.network_name
-  subnetwork   = module.network.private_subnet_names[0]
+  project_id           = var.project_id
+  region               = var.region
+  cluster_name         = var.cluster_name
+  network              = module.network.network_name
+  subnetwork           = module.network.private_subnet_names[0]
   node_service_account = var.node_service_account
 }
 

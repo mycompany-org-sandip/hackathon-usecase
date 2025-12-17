@@ -5,23 +5,23 @@
 # ------------------------------
 
 output "vpc_name" {
-description = "Name of the VPC"
-value       = module.network.network_name
+  description = "Name of the VPC"
+  value       = module.network.network_name
 }
 
 output "vpc_self_link" {
-description = "Self-link of the VPC"
-value       = module.network.vpc_self_link
+  description = "Self-link of the VPC"
+  value       = module.network.vpc_self_link
 }
 
 output "private_subnet_ids" {
-description = "Names of private subnets"
-value       = module.network.private_subnet_names
+  description = "Names of private subnets"
+  value       = module.network.private_subnet_names
 }
 
 output "private_subnet_self_links" {
-description = "Self-links of private subnets"
-value       = module.network.private_subnet_self_links
+  description = "Self-links of private subnets"
+  value       = module.network.private_subnet_self_links
 }
 
 # ------------------------------
@@ -31,18 +31,18 @@ value       = module.network.private_subnet_self_links
 # ------------------------------
 
 output "gke_cluster_name" {
-description = "Name of the GKE cluster"
-value       = module.gke.cluster_name
+  description = "Name of the GKE cluster"
+  value       = module.gke.cluster_name
 }
 
 output "gke_cluster_endpoint" {
-description = "Endpoint of the GKE cluster"
-value       = module.gke.endpoint
+  description = "Endpoint of the GKE cluster"
+  value       = module.gke.endpoint
 }
 
 output "gke_cluster_master_auth" {
-description = "Master authentication info for the cluster"
-value       = module.gke.master_auth
+  description = "Master authentication info for the cluster"
+  value       = module.gke.master_auth
 }
 
 # ------------------------------

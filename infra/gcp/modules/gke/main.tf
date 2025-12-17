@@ -7,9 +7,9 @@ resource "google_container_cluster" "gke" {
 }
 
 resource "google_container_node_pool" "primary" {
-  name       = "primary-pool"
-  cluster    = google_container_cluster.gke.name
-  location   = var.region
+  name     = "primary-pool"
+  cluster  = google_container_cluster.gke.name
+  location = var.region
 
   node_config {
     service_account = var.node_service_account

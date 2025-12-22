@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "patient-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "patient-service.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "patient-service.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "patient-service.name" . }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            {{- if .Values.global.keyvault.enabled }}
+            - name: KEYVAULT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.keyvault.secretName }}
+                  key: {{ .Values.global.keyvault.secretKey }}
+            {{- end }}

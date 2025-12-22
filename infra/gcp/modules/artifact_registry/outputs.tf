@@ -1,0 +1,17 @@
+output "repository_id" {
+  description = "Artifact Registry repository ID"
+  value       = google_artifact_registry_repository.repo[0].repository_id
+}
+
+output "repository_location" {
+  description = "Region where the Artifact Registry is created"
+  value       = google_artifact_registry_repository.repo[0].location
+}
+
+output "repository_url" {
+  description = "Full Docker repository URL"
+  value       = "${google_artifact_registry_repository.repo[0].location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo[0].repository_id}"
+}
+
+// Note: google_artifact_registry_repository does not export `self_link`.
+// Removing this output to avoid unsupported attribute errors.

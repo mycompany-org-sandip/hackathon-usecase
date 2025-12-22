@@ -1,0 +1,12 @@
+dependencies:
+- name: patient-service
+  repository: file://charts/patient-service
+  version: 0.1.0
+- name: application-service
+  repository: file://charts/application-service
+  version: 0.1.0
+- name: order-service
+  repository: file://charts/order-service
+  version: 0.1.0
+digest: sha256:2586656b03789b42cabb1dd1c902cbfbceb98adc57ffb12bd43dacdf93b84ae9
+generated: "2025-11-30T22:01:31.384105+05:30"

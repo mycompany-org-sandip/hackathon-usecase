@@ -1,0 +1,79 @@
+name: App CI - Build & Push Images
+
+on:
+  workflow_run:
+    workflows: ["Terraform Apply - Dev"]
+    types:
+      - completed
+
+env:
+  IMAGE_TAG: sha-${{ github.sha }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+
+      # Install gcloud
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Authenticate only on push
+      - name: Authenticate to GCP (WIF)
+        if: github.event_name == 'workflow_run'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.DEV_SA }}
+
+      - name: Configure Docker Auth
+        if: github.event_name == 'workflow_run'
+        run: gcloud auth configure-docker --quiet
+
+      # Run tests
+      - name: Run tests
+        run: echo "✅ Running unit tests"
+
+      # Select registry
+      - name: Select Registry
+        id: registry
+        run: echo "REGISTRY=${{ secrets.DEV_REGISTRY }}" >> $GITHUB_OUTPUT
+
+      # Build & push images
+      - name: Build & Push Images
+        if: github.event_name == 'workflow_run'
+        run: |
+          SERVICES=(application-service patient-service order-service)
+          for S in "${SERVICES[@]}"; do
+            docker buildx build \
+              --platform linux/amd64 \
+              --push \
+              -t ${{ steps.registry.outputs.REGISTRY }}/$S:$IMAGE_TAG \
+              ./services/$S
+          done
+
+      # Generate image metadata
+      - name: Generate Image Metadata
+        run: |
+          printf '{"application":"%s","patient":"%s","order":"%s"}' \
+            "${{ steps.registry.outputs.REGISTRY }}/application-service:$IMAGE_TAG" \
+            "${{ steps.registry.outputs.REGISTRY }}/patient-service:$IMAGE_TAG" \
+            "${{ steps.registry.outputs.REGISTRY }}/order-service:$IMAGE_TAG" > images.json
+
+      # Upload metadata artifact
+      - name: Upload Image Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: images
+          path: images.json

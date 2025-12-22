@@ -1,0 +1,41 @@
+name: Terraform Fmt & Validate
+
+on:
+  pull_request:
+
+concurrency:
+  group: terraform-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, staging, prod]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      # --- FORMAT CHECK ONLY ---
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      # --- INIT PER ENV WITHOUT BACKEND ---
+      - name: Terraform Init (${{ matrix.env }})
+        working-directory: infra/gcp/envs/${{ matrix.env }}
+        run: terraform init -backend=false -input=false
+
+      # --- VALIDATE PER ENV ---
+      - name: Terraform Validate (${{ matrix.env }})
+        working-directory: infra/gcp/envs/${{ matrix.env }}
+        run: terraform validate

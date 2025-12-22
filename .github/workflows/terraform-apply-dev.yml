@@ -1,0 +1,73 @@
+name: Terraform Apply - Dev
+
+on:
+  push:
+    branches: ["dev"]
+    paths:
+      - "infra/gcp/envs/dev/**"
+      - "infra/gcp/modules/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Prefer repo variable, fallback to secret if provided
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+jobs:
+  terraform-apply-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: infra/gcp/envs/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+          
+
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Terraform Init
+        run: terraform init -backend-config=backend.hcl -input=false
+
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      - name: Save Terraform outputs
+        run: terraform output -json > tf_outputs.json
+
+      - name: Upload Terraform outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-outputs-dev
+          path: infra/gcp/envs/dev/tf_outputs.json

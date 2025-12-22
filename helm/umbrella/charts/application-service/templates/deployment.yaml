@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "application-service.fullname" . }}
+  labels:
+    app: {{ include "application-service.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "application-service.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "application-service.name" . }}
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml .Values.global.imagePullSecrets | nindent 6 }}
+      {{- end }}
+      containers:
+        - name: application-service
+          image: {{ if .Values.global.registry }}"{{ .Values.global.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"{{ else }}"{{ .Values.image.repository }}:{{ .Values.image.tag }}"{{ end }}
+          imagePullPolicy: {{ .Values.image.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+          {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+          {{- end }}
+          {{- if and .Values.global.keyvault .Values.global.keyvault.enabled }}
+          volumeMounts:
+            - name: kv-secrets
+              mountPath: /mnt/secrets
+              readOnly: true
+          {{- end }}
+          resources:
+{{- toYaml .Values.resources | nindent 12 }}
+      {{- if and .Values.global.keyvault .Values.global.keyvault.enabled }}
+      volumes:
+        - name: kv-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ default "kv-secrets" .Values.global.keyvault.spClassName }}
+      {{- end }}

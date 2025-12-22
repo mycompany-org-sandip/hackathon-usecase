@@ -7,7 +7,7 @@ resource "google_artifact_registry_repository" "repo" {
   description   = "Artifact registry for ${var.repo_name}"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
     ignore_changes  = [description]
   }
 }

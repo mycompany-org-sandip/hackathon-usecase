@@ -36,12 +36,6 @@ output "gke_cluster_endpoint" {
   value       = module.gke.endpoint
 }
 
-# SAFE FIX (IMPORTANT)
-output "gke_cluster_master_auth" {
-  description = "Master authentication info for the cluster"
-  value       = module.gke.master_auth
-  sensitive   = true
-}
 
 # ------------------------------
 # Artifact Registry Outputs

@@ -181,6 +181,11 @@ gcloud projects add-iam-policy-binding "$SOURCE_IMAGES_PROJECT_ID" \
 gcloud artifacts docker images list "$AR_SERVER" || true
 ```
 
+### GKE Node Pool Tip
+- When managing GKE with Terraform, set `remove_default_node_pool = true` on `google_container_cluster` and do not define `node_config` there.
+- Define node settings in `google_container_node_pool` instead; otherwise updates may target a non-existent default pool and fail with `Error 400: Node pool "default-pool" not found on update`.
+- See the implementation in [infra/gcp/modules/gke/main.tf](infra/gcp/modules/gke/main.tf).
+
 ## 7) Helm Deploy
 ```bash
 cd /Users/sandipreddynukalapati/Desktop/hackathon-usecase/helm/umbrella

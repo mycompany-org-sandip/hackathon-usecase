@@ -1,4 +1,5 @@
 terraform {
+  backend "gcs" {}
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -53,12 +54,16 @@ module "iam" {
   project_id = var.project_id
 
   service_accounts = {
-    app-runner = {
+    app-runner-staging = {
       display_name = "Staging App Runner"
-      roles        = ["roles/container.admin", "roles/logging.logWriter"]
+      roles = [
+        "roles/container.admin",
+        "roles/logging.logWriter"
+      ]
     }
   }
 }
+
 
 # -------------------------------
 
@@ -67,23 +72,20 @@ module "iam" {
 # -------------------------------
 
 module "secret_manager" {
-  source     = "../../modules/secret_manager"
-  project_id = var.project_id
+  source        = "../../modules/secret_manager"
+  project_id    = var.project_id
+  environment   = var.environment
+  app_runner_sa = var.app_runner_sa
 
   secrets = {
-    "api-key"       = "api-key"
-    "db-connection" = "db-connection"
-  }
-
-  access_bindings = {
-    "api-key" = [
-      "serviceAccount:${var.app_runner_sa}"
-    ]
-    "db-connection" = [
-      "serviceAccount:${var.app_runner_sa}"
-    ]
+    "db-connection"  = {}
+    "api-key"        = {}
+    "another-secret" = {}
   }
 }
+
+
+
 
 # -------------------------------
 
@@ -101,15 +103,16 @@ module "artifact_registry" {
 # -------------------------------
 
 module "gke" {
-  count        = var.enable_gke ? 1 : 0
-  source       = "../../modules/gke"
-  project_id   = var.project_id
-  cluster_name = var.cluster_name
-  region       = var.region
+  source = "../../modules/gke"
 
-  network                   = module.network.vpc_self_link
-  subnetwork                = module.network.private_subnet_self_links[0]
-  node_pool_service_account = var.node_service_account
+  project_id   = var.project_id
+  region       = var.region
+  cluster_name = var.cluster_name
+  network      = module.network.vpc_self_link
+  subnetwork   = module.network.private_subnet_self_links[0]
+
+  node_service_account = var.node_service_account
+  deletion_protection  = var.deletion_protection
 }
 
 # -------------------------------

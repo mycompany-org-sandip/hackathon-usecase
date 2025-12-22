@@ -52,9 +52,20 @@ module "iam" {
   project_id = var.project_id
 
   service_accounts = {
-    app-runner = {
+    app-runner-prod = {
       display_name = "Prod App Runner"
-      roles        = ["roles/container.admin", "roles/logging.logWriter"]
+      roles        = [
+        "roles/container.admin",
+        "roles/logging.logWriter"
+      ]
+    }
+    gke-nodes-prod = {
+      display_name = "Prod GKE Nodes"
+      roles        = [
+        "roles/logging.logWriter",
+        "roles/monitoring.metricWriter",
+        "roles/artifactregistry.reader"
+      ]
     }
   }
 }
@@ -66,23 +77,18 @@ module "iam" {
 # -------------------------------
 
 module "secret_manager" {
-  source     = "../../modules/secret_manager"
-  project_id = var.project_id
+  source        = "../../modules/secret_manager"
+  project_id    = var.project_id
+  environment   = var.environment
+  app_runner_sa = var.app_runner_sa
 
   secrets = {
-    "api-key"       = "api-key"
-    "db-connection" = "db-connection"
-  }
-
-  access_bindings = {
-    "api-key" = [
-      "serviceAccount:${var.app_runner_sa}"
-    ]
-    "db-connection" = [
-      "serviceAccount:${var.app_runner_sa}"
-    ]
+    "db-connection" = {}
+    "api-key"       = {}
+    "another-secret" = {}
   }
 }
+
 
 
 # -------------------------------
@@ -103,17 +109,24 @@ module "artifact_registry" {
 # GKE Module
 
 # -------------------------------
-
 module "gke" {
   source = "../../modules/gke"
 
-  project_id                = var.project_id
-  region                    = var.region
-  cluster_name              = var.cluster_name
-  network                   = module.network.vpc_self_link
-  subnetwork                = module.network.private_subnet_self_links[0]
-  node_pool_service_account = var.node_service_account
+  project_id           = var.project_id
+  region               = var.region
+  cluster_name         = var.cluster_name
+  network              = module.network.vpc_self_link
+  subnetwork           = module.network.private_subnet_self_links[0]
+
+  node_service_account = module.iam.service_account_emails["gke-nodes-prod"]
+  deletion_protection  = var.deletion_protection
+
+  depends_on = [
+    module.iam,
+    module.network
+  ]
 }
+
 
 # -------------------------------
 

@@ -40,10 +40,6 @@ output "gke_cluster_endpoint" {
   value       = var.enable_gke ? module.gke[0].endpoint : null
 }
 
-output "gke_cluster_master_auth" {
-  description = "Master authentication info for the cluster"
-  value       = var.enable_gke ? module.gke[0].master_auth : null
-}
 
 # ------------------------------
 

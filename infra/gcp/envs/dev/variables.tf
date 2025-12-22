@@ -71,3 +71,8 @@ variable "node_service_account" {
   type        = string
   description = "Service account for GKE nodes"
 }
+
+variable "deletion_protection" {
+  description = "Protect GKE cluster from deletion"
+  type        = bool
+}

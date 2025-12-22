@@ -1,0 +1,558 @@
+{
+  "version": 4,
+  "terraform_version": "1.13.5",
+  "serial": 184,
+  "lineage": "f20f8920-b164-e6b4-c749-94a353ecb818",
+  "outputs": {
+    "gke_cluster_name": {
+      "value": "dev-cluster",
+      "type": "string"
+    },
+    "private_subnet_ids": {
+      "value": [
+        "dev-subnet-dev",
+        "dev-private-subnet-2-dev"
+      ],
+      "type": [
+        "tuple",
+        [
+          "string",
+          "string"
+        ]
+      ]
+    },
+    "private_subnet_self_links": {
+      "value": [
+        "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-subnet-dev",
+        "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-private-subnet-2-dev"
+      ],
+      "type": [
+        "tuple",
+        [
+          "string",
+          "string"
+        ]
+      ]
+    },
+    "vpc_name": {
+      "value": "dev-vpc-dev",
+      "type": "string"
+    },
+    "vpc_self_link": {
+      "value": "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/global/networks/dev-vpc-dev",
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "module": "module.gke",
+      "mode": "managed",
+      "type": "google_container_cluster",
+      "name": "gke",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "addons_config": [
+              {
+                "cloudrun_config": [],
+                "config_connector_config": [],
+                "dns_cache_config": [],
+                "gce_persistent_disk_csi_driver_config": [
+                  {
+                    "enabled": true
+                  }
+                ],
+                "gcp_filestore_csi_driver_config": [],
+                "gcs_fuse_csi_driver_config": [],
+                "gke_backup_agent_config": [],
+                "horizontal_pod_autoscaling": [],
+                "http_load_balancing": [],
+                "lustre_csi_driver_config": [],
+                "network_policy_config": [
+                  {
+                    "disabled": true
+                  }
+                ],
+                "parallelstore_csi_driver_config": [],
+                "ray_operator_config": [],
+                "stateful_ha_config": []
+              }
+            ],
+            "allow_net_admin": null,
+            "anonymous_authentication_config": [
+              {
+                "mode": "ENABLED"
+              }
+            ],
+            "authenticator_groups_config": [],
+            "binary_authorization": [
+              {
+                "enabled": false,
+                "evaluation_mode": ""
+              }
+            ],
+            "cluster_autoscaling": [
+              {
+                "auto_provisioning_defaults": [],
+                "auto_provisioning_locations": [],
+                "autoscaling_profile": "BALANCED",
+                "enabled": false,
+                "resource_limits": []
+              }
+            ],
+            "cluster_ipv4_cidr": "10.80.0.0/14",
+            "confidential_nodes": [],
+            "control_plane_endpoints_config": [
+              {
+                "dns_endpoint_config": [
+                  {
+                    "allow_external_traffic": false,
+                    "endpoint": "gke-c247c61c04b74e4ca1ad33ac04c45e9f3ba6-661961012629.asia-south1.gke.goog"
+                  }
+                ],
+                "ip_endpoints_config": [
+                  {
+                    "enabled": true
+                  }
+                ]
+              }
+            ],
+            "cost_management_config": [],
+            "database_encryption": [
+              {
+                "key_name": "",
+                "state": "DECRYPTED"
+              }
+            ],
+            "datapath_provider": "",
+            "default_max_pods_per_node": 110,
+            "default_snat_status": [
+              {
+                "disabled": false
+              }
+            ],
+            "deletion_protection": true,
+            "description": "",
+            "disable_l4_lb_firewall_reconciliation": false,
+            "dns_config": [],
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "enable_autopilot": false,
+            "enable_cilium_clusterwide_network_policy": false,
+            "enable_fqdn_network_policy": false,
+            "enable_intranode_visibility": false,
+            "enable_k8s_beta_apis": [],
+            "enable_kubernetes_alpha": false,
+            "enable_l4_ilb_subsetting": false,
+            "enable_legacy_abac": false,
+            "enable_multi_networking": false,
+            "enable_shielded_nodes": true,
+            "enable_tpu": false,
+            "endpoint": "34.47.236.157",
+            "enterprise_config": [
+              {
+                "cluster_tier": "STANDARD",
+                "desired_tier": ""
+              }
+            ],
+            "fleet": [],
+            "gateway_api_config": [],
+            "gke_auto_upgrade_config": [],
+            "id": "projects/massive-sandbox-477717-k3/locations/asia-south1/clusters/dev-cluster",
+            "identity_service_config": [],
+            "in_transit_encryption_config": "",
+            "initial_node_count": 1,
+            "ip_allocation_policy": [
+              {
+                "additional_ip_ranges_config": [],
+                "additional_pod_ranges_config": [],
+                "cluster_ipv4_cidr_block": "10.80.0.0/14",
+                "cluster_secondary_range_name": "gke-dev-cluster-pods-c247c61c",
+                "pod_cidr_overprovision_config": [
+                  {
+                    "disabled": false
+                  }
+                ],
+                "services_ipv4_cidr_block": "34.118.224.0/20",
+                "services_secondary_range_name": "",
+                "stack_type": "IPV4"
+              }
+            ],
+            "label_fingerprint": "78cdf2f6",
+            "location": "asia-south1",
+            "logging_config": [
+              {
+                "enable_components": [
+                  "SYSTEM_COMPONENTS",
+                  "WORKLOADS"
+                ]
+              }
+            ],
+            "logging_service": "logging.googleapis.com/kubernetes",
+            "maintenance_policy": [],
+            "master_auth": [
+              {
+                "client_certificate": "",
+                "client_certificate_config": [
+                  {
+                    "issue_client_certificate": false
+                  }
+                ],
+                "client_key": "",
+                "cluster_ca_certificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVMVENDQXBXZ0F3SUJBZ0lSQU5Vc0VVbXBMLzBqdDJZQjNTN2sxV1l3RFFZSktvWklodmNOQVFFTEJRQXcKTHpFdE1Dc0dBMVVFQXhNa09XUTFZVGcwTmpVdFpHUmlOUzAwTXpSakxXRm1ZMlF0WWpabVlXWmtZV1l5T0RjdwpNQ0FYRFRJMU1USXhPVEE1TURJeE5Wb1lEekl3TlRVeE1qRXlNVEF3TWpFMVdqQXZNUzB3S3dZRFZRUURFeVE1ClpEVmhPRFEyTlMxa1pHSTFMVFF6TkdNdFlXWmpaQzFpTm1aaFptUmhaakk0TnpBd2dnR2lNQTBHQ1NxR1NJYjMKRFFFQkFRVUFBNElCandBd2dnR0tBb0lCZ1FDbFBINWUxQ2ZQQXNYNmIvRWNOMEpURVI0dHYzcm9WYmpHRTQ1MApIK2h1bytndVZjRjYvbXF0dkdrZTEwL2E0d0lZNjREQlNXdWdJanBMUERCNWt0NElIR0FramxZT1c5aUJyT1AvCjVhWXQwSFJDbUJ4eGFTK1YxcUxvbTIxajB5QW1tWjBPQ1hFbXNhVzkxR0hNNUFrWnZUSE8vUjJBSW8xRjduOUoKbEcrcXVyOHljcm5UWXZwMC9Ra0pjQ2lwOTdIcWxiRFQxQjJFUXk2NG1pbTcwZ1Zaa1hXdmZaNEVYdnovYVFzWQoyVVBNNTBCYWlYdXBEZ0Z0RFRpWkU1aXUxbmVucy9qR0dUbWh6TEI2dWVkcWFBZDVEYkRqdWFxTWpwczMxZVlkCmdPamJ3eEVoRHFNZG1DNHFleTNKY21TUjdEeEtGZ21xVHBUdVFMN2c1Nk1yQU1nRXlxYnF3eXpqeFdGRTBGNTgKZ3YweERxK3FQRGF0UGhxWElBeUU0aHJlMm1JMUZXam04Y0N0SHBaN2tnMHB1aURxS3poM3lwR3J2SzJoWXNsUQo2MENRTms5RkNPY0J4SkY4ZDlDS0YreFlNbDU2Rkd4eGxMQW50UWVpNmh6MUVHZHVxM1NrZElyRUJjY0w3VFdKCkNMeE5BcFA3U254c0xOZVBaZ0JHM0VYbHdSOENBd0VBQWFOQ01FQXdEZ1lEVlIwUEFRSC9CQVFEQWdJRU1BOEcKQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUVGUDNrR0dUSDM2VXlBZ0VFRjUzNGVZUUs4RGdLTUEwRwpDU3FHU0liM0RRRUJDd1VBQTRJQmdRQjR3Q0JYeTJtYzMyK2dZVzdteEVWbjMvYTdjYjgrL0JIblVHeml4QzY1Ck9Td0M1N3J4TEprb0QwWmtjaklzeVNHdkhFYTd3RTdNVVlreE9TNFRjL1ZIODlaS1FFV0dwQ0N2bk5hRmJ2N0cKMXR2VWNaUlhDOEJMNFEza0tmZ0JIWkVKd2N0Vk4zK3ZNUDRFSHBlbk9XNENvcGRsYkxJenlCY0RxdysyWDVXYQpqazdCM21PTW92S2s3YU13WlhPQysyZHVzTlB5UzJhbHU4NDFXODBZcjFUK1Q0NEl2NkdnRmZpTlJoamVGU2JMClJ4dHVxbUY0Ukw3SWF1dkorY0Y2RVJ2M0xXUGR1RkFDQUxKOHlwZHNuUmVZQkpQYUFDcldHaXBRYjF6L3ZTWFQKUVNMQnpjQnlENHBuSS85QndwclZRYmNtVEgvM2Y3M0NYQk15YjlYK0xsL2N6eWhuZnlTYklSQlVWdDZraE1EeApDUHdmNDN4U3FWMit2QWpxYlJ5cWpQUmtKWmxvcCtqV0dOSlJGYWhvU0FFdlRjcVFodjd1WWJjRFczdzBLTkJwCmlXUWNPcDZweG9rK2lSNGs5S2YwOTR6emVGRTREajdFd0FLVndtd2hYMXF6MTBiUk43NHd5ZjFzbWZMQ3JtMFgKbG9sbmV1SmtKNjE5a09FelFlS3IyTEk9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+              }
+            ],
+            "master_authorized_networks_config": [],
+            "master_version": "1.33.5-gke.1308000",
+            "mesh_certificates": [],
+            "min_master_version": null,
+            "monitoring_config": [
+              {
+                "advanced_datapath_observability_config": [
+                  {
+                    "enable_metrics": false,
+                    "enable_relay": false
+                  }
+                ],
+                "enable_components": [
+                  "SYSTEM_COMPONENTS",
+                  "DEPLOYMENT",
+                  "STATEFULSET",
+                  "JOBSET",
+                  "STORAGE",
+                  "HPA",
+                  "POD",
+                  "DAEMONSET",
+                  "CADVISOR",
+                  "KUBELET",
+                  "DCGM"
+                ],
+                "managed_prometheus": [
+                  {
+                    "auto_monitoring_config": [],
+                    "enabled": true
+                  }
+                ]
+              }
+            ],
+            "monitoring_service": "monitoring.googleapis.com/kubernetes",
+            "name": "dev-cluster",
+            "network": "projects/massive-sandbox-477717-k3/global/networks/dev-vpc-dev",
+            "network_performance_config": [],
+            "network_policy": [
+              {
+                "enabled": false,
+                "provider": "PROVIDER_UNSPECIFIED"
+              }
+            ],
+            "networking_mode": "VPC_NATIVE",
+            "node_config": [],
+            "node_locations": [
+              "asia-south1-a",
+              "asia-south1-b",
+              "asia-south1-c"
+            ],
+            "node_pool": [],
+            "node_pool_auto_config": [
+              {
+                "linux_node_config": [],
+                "network_tags": [],
+                "node_kubelet_config": [
+                  {
+                    "insecure_kubelet_readonly_port_enabled": "FALSE"
+                  }
+                ],
+                "resource_manager_tags": {}
+              }
+            ],
+            "node_pool_defaults": [
+              {
+                "node_config_defaults": [
+                  {
+                    "containerd_config": [],
+                    "gcfs_config": [],
+                    "insecure_kubelet_readonly_port_enabled": "FALSE",
+                    "logging_variant": "DEFAULT"
+                  }
+                ]
+              }
+            ],
+            "node_version": "1.33.5-gke.1308000",
+            "notification_config": [
+              {
+                "pubsub": [
+                  {
+                    "enabled": false,
+                    "filter": [],
+                    "topic": ""
+                  }
+                ]
+              }
+            ],
+            "operation": null,
+            "pod_autoscaling": [
+              {
+                "hpa_profile": "PERFORMANCE"
+              }
+            ],
+            "private_cluster_config": [
+              {
+                "enable_private_endpoint": false,
+                "enable_private_nodes": false,
+                "master_global_access_config": [
+                  {
+                    "enabled": false
+                  }
+                ],
+                "master_ipv4_cidr_block": "",
+                "peering_name": "",
+                "private_endpoint": "10.10.0.2",
+                "private_endpoint_subnetwork": "",
+                "public_endpoint": "34.47.236.157"
+              }
+            ],
+            "private_ipv6_google_access": "",
+            "project": "massive-sandbox-477717-k3",
+            "rbac_binding_config": [
+              {
+                "enable_insecure_binding_system_authenticated": true,
+                "enable_insecure_binding_system_unauthenticated": true
+              }
+            ],
+            "release_channel": [
+              {
+                "channel": "REGULAR"
+              }
+            ],
+            "remove_default_node_pool": true,
+            "resource_labels": {},
+            "resource_usage_export_config": [],
+            "secret_manager_config": [
+              {
+                "enabled": false
+              }
+            ],
+            "security_posture_config": [
+              {
+                "mode": "BASIC",
+                "vulnerability_mode": "VULNERABILITY_MODE_UNSPECIFIED"
+              }
+            ],
+            "self_link": "https://container.googleapis.com/v1/projects/massive-sandbox-477717-k3/locations/asia-south1/clusters/dev-cluster",
+            "service_external_ips_config": [
+              {
+                "enabled": false
+              }
+            ],
+            "services_ipv4_cidr": "34.118.224.0/20",
+            "subnetwork": "projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-subnet-dev",
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null,
+            "tpu_ipv4_cidr_block": "",
+            "user_managed_keys_config": [],
+            "vertical_pod_autoscaling": [],
+            "workload_identity_config": [
+              {
+                "workload_pool": "massive-sandbox-477717-k3.svc.id.goog"
+              }
+            ]
+          },
+          "sensitive_attributes": [
+            [
+              {
+                "type": "get_attr",
+                "value": "master_auth"
+              },
+              {
+                "type": "index",
+                "value": {
+                  "value": 0,
+                  "type": "number"
+                }
+              },
+              {
+                "type": "get_attr",
+                "value": "client_key"
+              }
+            ]
+          ],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoyNDAwMDAwMDAwMDAwLCJkZWxldGUiOjI0MDAwMDAwMDAwMDAsInJlYWQiOjI0MDAwMDAwMDAwMDAsInVwZGF0ZSI6MzYwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMiJ9",
+          "dependencies": [
+            "module.network.google_compute_network.vpc",
+            "module.network.google_compute_subnetwork.private"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.iam",
+      "mode": "managed",
+      "type": "google_project_iam_custom_role",
+      "name": "custom",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": []
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "google_compute_network",
+      "name": "vpc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "auto_create_subnetworks": false,
+            "bgp_always_compare_med": false,
+            "bgp_best_path_selection_mode": "LEGACY",
+            "bgp_inter_region_cost": "",
+            "delete_default_routes_on_create": false,
+            "description": "Primary VPC for dev workloads",
+            "enable_ula_internal_ipv6": false,
+            "gateway_ipv4": "",
+            "id": "projects/massive-sandbox-477717-k3/global/networks/dev-vpc-dev",
+            "internal_ipv6_range": "",
+            "mtu": 0,
+            "name": "dev-vpc-dev",
+            "network_firewall_policy_enforcement_order": "AFTER_CLASSIC_FIREWALL",
+            "network_id": "3408960093321733934",
+            "network_profile": "",
+            "numeric_id": "3408960093321733934",
+            "params": [],
+            "project": "massive-sandbox-477717-k3",
+            "routing_mode": "GLOBAL",
+            "self_link": "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/global/networks/dev-vpc-dev",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "google_compute_subnetwork",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "creation_timestamp": "2025-12-16T00:35:26.699-08:00",
+            "description": "",
+            "enable_flow_logs": false,
+            "external_ipv6_prefix": "",
+            "fingerprint": null,
+            "gateway_address": "10.10.0.1",
+            "id": "projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-subnet-dev",
+            "internal_ipv6_prefix": "",
+            "ip_cidr_range": "10.10.0.0/20",
+            "ip_collection": null,
+            "ipv6_access_type": "",
+            "ipv6_cidr_range": "",
+            "ipv6_gce_endpoint": "",
+            "log_config": [],
+            "name": "dev-subnet-dev",
+            "network": "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/global/networks/dev-vpc-dev",
+            "params": [],
+            "private_ip_google_access": true,
+            "private_ipv6_google_access": "DISABLE_GOOGLE_ACCESS",
+            "project": "massive-sandbox-477717-k3",
+            "purpose": "PRIVATE",
+            "region": "asia-south1",
+            "reserved_internal_range": "",
+            "role": "",
+            "secondary_ip_range": [
+              {
+                "ip_cidr_range": "10.80.0.0/14",
+                "range_name": "gke-dev-cluster-pods-c247c61c",
+                "reserved_internal_range": "https://networkconnectivity.googleapis.com/v1/projects/massive-sandbox-477717-k3/locations/global/internalRanges/gke-dev-cluster-pods-c247c61c"
+              }
+            ],
+            "self_link": "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-subnet-dev",
+            "send_secondary_ip_range_if_empty": null,
+            "stack_type": "IPV4_ONLY",
+            "state": "",
+            "subnetwork_id": 4559434806599657249,
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9",
+          "dependencies": [
+            "module.network.google_compute_network.vpc"
+          ]
+        },
+        {
+          "index_key": 1,
+          "schema_version": 0,
+          "attributes": {
+            "creation_timestamp": "2025-12-16T07:22:20.188-08:00",
+            "description": "",
+            "enable_flow_logs": false,
+            "external_ipv6_prefix": "",
+            "fingerprint": null,
+            "gateway_address": "10.0.2.1",
+            "id": "projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-private-subnet-2-dev",
+            "internal_ipv6_prefix": "",
+            "ip_cidr_range": "10.0.2.0/24",
+            "ip_collection": null,
+            "ipv6_access_type": "",
+            "ipv6_cidr_range": "",
+            "ipv6_gce_endpoint": "",
+            "log_config": [],
+            "name": "dev-private-subnet-2-dev",
+            "network": "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/global/networks/dev-vpc-dev",
+            "params": [],
+            "private_ip_google_access": false,
+            "private_ipv6_google_access": "DISABLE_GOOGLE_ACCESS",
+            "project": "massive-sandbox-477717-k3",
+            "purpose": "PRIVATE",
+            "region": "asia-south1",
+            "reserved_internal_range": "",
+            "role": "",
+            "secondary_ip_range": [],
+            "self_link": "https://www.googleapis.com/compute/v1/projects/massive-sandbox-477717-k3/regions/asia-south1/subnetworks/dev-private-subnet-2-dev",
+            "send_secondary_ip_range_if_empty": null,
+            "stack_type": "IPV4_ONLY",
+            "state": "",
+            "subnetwork_id": 3870001300421527491,
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.network.google_compute_network.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "google_compute_subnetwork",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": []
+    },
+    {
+      "module": "module.secret_manager",
+      "mode": "managed",
+      "type": "google_secret_manager_secret_iam_member",
+      "name": "members",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": []
+    }
+  ],
+  "check_results": null
+}

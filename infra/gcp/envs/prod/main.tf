@@ -87,6 +87,9 @@ module "secret_manager" {
     "api-key"       = {}
     "another-secret" = {}
   }
+
+  # Explicitly set access bindings for clarity in validation/CI
+  access_bindings = {}
 }
 
 

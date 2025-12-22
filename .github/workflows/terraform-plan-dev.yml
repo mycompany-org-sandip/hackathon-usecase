@@ -7,6 +7,7 @@ on:
       - "infra/gcp/modules/**"
 
 permissions:
+  id-token: write       # required for WIF
   contents: read
 
 concurrency:
@@ -30,6 +31,16 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
+
+      # Authenticate to GCP via Workload Identity Federation
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Terraform Init (no backend)
         run: terraform init -backend=false -input=false

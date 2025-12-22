@@ -9,16 +9,27 @@ resource "google_service_account" "accounts" {
   project      = var.project_id
 }
 
-resource "google_project_iam_member" "sa_roles_per_role" {
-  for_each = toset(flatten([
-    for sa_key, sa in var.service_accounts : [
-      for role in sa.roles : "${sa_key}|${role}"
-    ]
-  ]))
+# Assign IAM Roles
+resource "google_project_iam_member" "roles" {
+  for_each = {
+    for item in flatten([
+      for sa_name, sa in var.service_accounts : [
+        for role in sa.roles : {
+          key     = "${sa_name}-${role}"
+          sa_name = sa_name
+          role    = role
+        }
+      ]
+    ]) :
+    item.key => {
+      sa_name = item.sa_name
+      role    = item.role
+    }
+  }
 
   project = var.project_id
-  role    = element(split("|", each.value), 1)
-  member  = "serviceAccount:${google_service_account.accounts[element(split("|", each.value), 0)].email}"
+  role    = each.value.role
+  member  = "serviceAccount:${google_service_account.accounts[each.value.sa_name].email}"
 }
 
 

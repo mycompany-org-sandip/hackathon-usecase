@@ -34,3 +34,10 @@ variable "deletion_protection" {
   type        = bool
   default     = true
 }
+
+variable "node_count" {
+  description = "Number of nodes in the primary node pool"
+  type        = number
+  default     = 1
+}
+

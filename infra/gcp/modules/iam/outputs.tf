@@ -1,7 +1,4 @@
-output "service_accounts" {
-  value = google_service_account.accounts
-}
-
 output "service_account_emails" {
-  value = { for k, v in google_service_account.accounts : k => v.email }
+  description = "Map of service account IDs to their emails"
+  value       = { for k, v in google_service_account.accounts : k => v.email }
 }

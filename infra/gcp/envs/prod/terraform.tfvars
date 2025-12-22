@@ -15,8 +15,15 @@ firewall_ssh_source_ranges = ["0.0.0.0/0"]
 allow_http                 = true
 allow_https                = true
 
-# Service accounts
-# Used by applications to access secrets
-app_runner_sa = "app-runner@massive-sandbox-477717-k3.iam.gserviceaccount.com"
-# Used by GKE nodes; using the same SA for now
-node_service_account = "app-runner@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+
+app_runner_sa        = "app-runner-prod@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+node_service_account = "gke-nodes-prod@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+
+# Allow cluster destroy when tearing down prod
+deletion_protection = false
+
+artifact_region = "us-central1"
+
+secrets = {}
+
+access_bindings = {}

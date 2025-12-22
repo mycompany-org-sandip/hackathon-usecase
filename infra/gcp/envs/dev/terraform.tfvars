@@ -11,6 +11,11 @@ private_subnet_names       = ["dev-subnet", "dev-private-subnet-2"]
 private_subnet_cidr_blocks = ["10.10.0.0/20", "10.0.2.0/24"]
 
 # Service account
-app_runner_sa        = "app-runner@massive-sandbox-477717-k3.iam.gserviceaccount.com"
-node_service_account = "gke-nodes@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+
+app_runner_sa        = "app-runner-dev@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+node_service_account = "gke-nodes-dev@massive-sandbox-477717-k3.iam.gserviceaccount.com"
+
+
+# Set to false to allow cluster destroy
+deletion_protection = false
 

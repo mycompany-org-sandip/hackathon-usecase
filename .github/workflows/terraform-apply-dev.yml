@@ -12,7 +12,8 @@ permissions:
   contents: read
 
 env:
-  PROJECT_ID: massive-sandbox-477717-k3
+  # Prefer repo variable, fallback to secret if provided
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
 
 concurrency:
   group: terraform-dev
@@ -35,6 +36,8 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
+
+          
 
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2

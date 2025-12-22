@@ -40,11 +40,6 @@ output "gke_cluster_endpoint" {
   value       = module.gke.endpoint
 }
 
-output "gke_cluster_master_auth" {
-  description = "Master authentication info for the cluster"
-  value       = module.gke.master_auth
-}
-
 # ------------------------------
 
 # Artifact Registry Outputs
@@ -62,3 +57,4 @@ output "repository_location" {
 output "repository_url" {
   value = module.artifact_registry.repository_url
 }
+#nbhj#

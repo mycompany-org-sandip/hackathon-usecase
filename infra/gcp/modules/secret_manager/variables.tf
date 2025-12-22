@@ -4,9 +4,9 @@ variable "project_id" {
 }
 
 variable "secrets" {
-  description = "Secrets to manage as key -> secret_id"
-  type        = map(string)
+  type = map(any)
 }
+
 
 variable "access_bindings" {
   description = "IAM bindings for Secret Manager secrets"
@@ -14,6 +14,12 @@ variable "access_bindings" {
   default     = {}
 }
 
+variable "app_runner_sa" {
+  description = "Service account used by application runtime"
+  type        = string
+}
 
-
-
+variable "environment" {
+  description = "Environment (dev/staging/prod)"
+  type        = string
+}

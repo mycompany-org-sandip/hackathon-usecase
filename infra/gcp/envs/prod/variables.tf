@@ -72,3 +72,19 @@ variable "node_service_account" {
   type        = string
   description = "Service account for GKE nodes"
 }
+
+variable "deletion_protection" {
+  description = "Protect GKE cluster from deletion"
+  type        = bool
+}
+variable "secrets" {
+  description = "Secrets to be created in Secret Manager"
+  type        = map(string)
+  default     = {}
+}
+
+variable "access_bindings" {
+  description = "IAM bindings for secrets"
+  type        = map(list(string))
+  default     = {}
+}

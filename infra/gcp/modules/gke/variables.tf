@@ -23,8 +23,14 @@ variable "subnetwork" {
   type        = string
 }
 
-variable "node_pool_service_account" {
-  description = "SA for node pool"
+
+variable "node_service_account" {
+  description = "Service account used by GKE nodes"
   type        = string
-  default     = "default"
+}
+
+variable "deletion_protection" {
+  description = "Whether to protect the cluster from deletion"
+  type        = bool
+  default     = true
 }

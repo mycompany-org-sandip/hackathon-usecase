@@ -2,7 +2,7 @@ resource "google_container_cluster" "gke" {
   name     = var.cluster_name
   location = var.region
   project  = var.project_id
-   
+
 
   network    = var.network
   subnetwork = var.subnetwork
@@ -29,10 +29,10 @@ resource "google_container_cluster" "gke" {
 
 
 resource "google_container_node_pool" "primary" {
-  name       = "primary-pool"
-  cluster    = google_container_cluster.gke.name
-  location   = google_container_cluster.gke.location
-  project    = var.project_id
+  name     = "primary-pool"
+  cluster  = google_container_cluster.gke.name
+  location = google_container_cluster.gke.location
+  project  = var.project_id
 
   node_count = 1
 

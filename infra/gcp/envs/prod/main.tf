@@ -54,14 +54,14 @@ module "iam" {
   service_accounts = {
     app-runner-prod = {
       display_name = "Prod App Runner"
-      roles        = [
+      roles = [
         "roles/container.admin",
         "roles/logging.logWriter"
       ]
     }
     gke-nodes-prod = {
       display_name = "Prod GKE Nodes"
-      roles        = [
+      roles = [
         "roles/logging.logWriter",
         "roles/monitoring.metricWriter",
         "roles/artifactregistry.reader"
@@ -83,13 +83,21 @@ module "secret_manager" {
   app_runner_sa = var.app_runner_sa
 
   secrets = {
-    "db-connection" = {}
-    "api-key"       = {}
+    "db-connection"  = {}
+    "api-key"        = {}
     "another-secret" = {}
   }
 
   # Explicitly set access bindings for clarity in validation/CI
-  access_bindings = {}
+  access_bindings = {
+    "db-connection" = [
+      "serviceAccount:${module.iam.service_account_emails["app-runner-prod"]}"
+    ]
+    "api-key" = [
+      "serviceAccount:${module.iam.service_account_emails["gke-nodes-prod"]}"
+    ]
+    # "another-secret" = []
+  }
 }
 
 
@@ -115,11 +123,11 @@ module "artifact_registry" {
 module "gke" {
   source = "../../modules/gke"
 
-  project_id           = var.project_id
-  region               = var.region
-  cluster_name         = var.cluster_name
-  network              = module.network.vpc_self_link
-  subnetwork           = module.network.private_subnet_self_links[0]
+  project_id   = var.project_id
+  region       = var.region
+  cluster_name = var.cluster_name
+  network      = module.network.vpc_self_link
+  subnetwork   = module.network.private_subnet_self_links[0]
 
   node_service_account = module.iam.service_account_emails["gke-nodes-prod"]
   deletion_protection  = var.deletion_protection

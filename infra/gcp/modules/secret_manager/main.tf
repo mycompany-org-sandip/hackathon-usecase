@@ -2,7 +2,7 @@
 resource "google_secret_manager_secret" "secrets" {
   for_each  = var.secrets
   secret_id = each.key
-    replication {
+  replication {
     user_managed {
       replicas {
         location = "us-central1"
@@ -18,7 +18,7 @@ locals {
   iam_bindings = {
     for binding in flatten([
       for secret, members in var.access_bindings : [
-        for member in members : {
+        for member in coalesce(members, []) : {
           key    = "${secret}|${member}"
           secret = secret
           member = member

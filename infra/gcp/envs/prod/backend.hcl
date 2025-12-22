@@ -1,7 +1,3 @@
-terraform {
-  backend "gcs" {
-    bucket  = "tf-state-massive-sandbox-477717-k3-prod"
-    prefix  = "gcp/prod"
-  }
-}
+bucket  = "tf-massive-sandbox"
+prefix = "terraform/state/prod"
 

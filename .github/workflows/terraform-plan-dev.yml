@@ -47,6 +47,22 @@ jobs:
             exit 1
           fi
 
+      - name: Validate WIF provider format
+        run: |
+          PROVIDER="${{ secrets.WIF_PROVIDER_DEV }}"
+          if ! echo "$PROVIDER" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[A-Za-z0-9_-]+/providers/[A-Za-z0-9_-]+$'; then
+            echo "WIF_PROVIDER_DEV must be 'projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/providers/<provider-id>'" >&2
+            exit 1
+          fi
+          echo "Resolved PROJECT_ID: ${PROJECT_ID}"
+
+      - name: Show expected audiences (for GCP config)
+        run: |
+          PROVIDER="${{ secrets.WIF_PROVIDER_DEV }}"
+          echo "If your provider restricts allowed audiences, include one of these:"
+          echo " - //iam.googleapis.com/${PROVIDER}"
+          echo " - https://iam.googleapis.com/${PROVIDER}"
+
       # Authenticate to GCP via Workload Identity Federation
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
@@ -56,6 +72,20 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: latest
+
+      - name: Post-auth sanity check
+        run: |
+          echo "Active gcloud account (should be the SA):"
+          gcloud auth list --filter=status:ACTIVE
+          echo "Configured project (should match PROJECT_ID):"
+          gcloud config list project --format 'get(core.project)'
+          echo "WhoAmI (principal email):"
+          gcloud auth list --format='value(account)'
 
       - name: Terraform Init (no backend)
         run: terraform init -backend=false -input=false

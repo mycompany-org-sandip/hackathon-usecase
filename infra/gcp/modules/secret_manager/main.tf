@@ -16,13 +16,18 @@ resource "google_secret_manager_secret" "secrets" {
 // ...existing code...
 locals {
   iam_bindings = {
-    for pair in flatten([
+    for binding in flatten([
       for secret, members in var.access_bindings : [
-        for member in members : { key = "${secret}|${member}", secret = secret, member = member }
+        for member in members : {
+          key    = "${secret}|${member}"
+          secret = secret
+          member = member
+        }
       ]
-    ]) : pair.key => pair
+    ]) : binding.key => binding
   }
 }
+
 // ...existing code...
 
 resource "google_secret_manager_secret_iam_member" "members" {
@@ -32,3 +37,4 @@ resource "google_secret_manager_secret_iam_member" "members" {
   role      = "roles/secretmanager.secretAccessor"
   member    = each.value.member
 }
+

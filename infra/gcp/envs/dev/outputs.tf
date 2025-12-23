@@ -58,3 +58,9 @@ output "repository_url" {
   value = module.artifact_registry.repository_url
 }
 
+
+#vxcgvfkhjx#
+#nbfbdmfbdbdbc#
+#hdhhsjhjsadhd#
+#hdghfdsjafjahsdfjds#
+#dvsfvdvfdvfdsvfvhj#

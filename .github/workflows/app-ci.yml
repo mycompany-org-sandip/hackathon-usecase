@@ -31,10 +31,14 @@ jobs:
 
       # Authenticate only on push
       - name: Authenticate to GCP (WIF)
+
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.DEV_SA }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Configure Docker Auth
         if: github.event_name == 'workflow_run'

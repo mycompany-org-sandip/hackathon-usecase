@@ -22,7 +22,6 @@ jobs:
         include:
           - environment: dev
             branch: dev
-            registry_secret: DEV_REGISTRY
             cluster_secret: DEV_GKE_CLUSTER
             region_secret: DEV_GKE_REGION
             service_account_secret: DEV_SA
@@ -30,7 +29,6 @@ jobs:
 
           - environment: staging
             branch: staging
-            registry_secret: STG_REGISTRY
             cluster_secret: STG_GKE_CLUSTER
             region_secret: STG_GKE_REGION
             service_account_secret: STG_SA
@@ -38,7 +36,6 @@ jobs:
 
           - environment: prod
             branch: main
-            registry_secret: PROD_REGISTRY
             cluster_secret: PROD_GKE_CLUSTER
             region_secret: PROD_GKE_REGION
             service_account_secret: PROD_SA
@@ -50,12 +47,13 @@ jobs:
 
     steps:
       # --------------------------------------------------
-      # Decide if this matrix entry should deploy
+      # Decide if this environment should deploy
       # --------------------------------------------------
       - name: Check branch match
         id: should_deploy
         run: |
           BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Trigger branch: $BRANCH"
           if [[ "$BRANCH" == "${{ matrix.branch }}" ]]; then
             echo "deploy=true" >> $GITHUB_OUTPUT
           else
@@ -63,14 +61,14 @@ jobs:
           fi
 
       # --------------------------------------------------
-      # Checkout code
+      # Checkout repo
       # --------------------------------------------------
       - name: Checkout
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: actions/checkout@v4
 
       # --------------------------------------------------
-      # Download image metadata from App CI workflow
+      # Download image metadata from CI workflow
       # --------------------------------------------------
       - name: Download images metadata
         if: steps.should_deploy.outputs.deploy == 'true'
@@ -90,6 +88,8 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets[matrix.service_account_secret] }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       # --------------------------------------------------
       # Get GKE credentials
@@ -110,7 +110,7 @@ jobs:
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Extract image repos & tags
+      # Parse image tags
       # --------------------------------------------------
       - name: Prepare image tags
         if: steps.should_deploy.outputs.deploy == 'true'

@@ -22,61 +22,81 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ matrix.environment }}
 
+   
+
+
     strategy:
       matrix:
         include:
           - environment: dev
             terraform_workflow: Terraform Apply - Dev
             registry_secret: DEV_REGISTRY
-            wif_provider_secret: WIF_PROVIDER_DEV
+            sa_name: github-terraform-dev
 
           - environment: staging
             terraform_workflow: Terraform Apply - Staging
-            registry_secret: STG_REGISTRY
-            wif_provider_secret: WIF_PROVIDER_STG
+            registry_secret: STAGING_REGISTRY
+            sa_name: github-terraform-staging
 
           - environment: prod
             terraform_workflow: Terraform Apply - Prod
             registry_secret: PROD_REGISTRY
-            wif_provider_secret: WIF_PROVIDER_PROD
-
-     
-   
-     # Run only when the matching Terraform workflow succeeds
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
+            sa_name: github-terraform-prod
 
     steps:
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # Docker buildx setup
+      # --------------------------------------------------
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      # --------------------------------------------------
+      # Setup gcloud
+      # --------------------------------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      # --------------------------------------------------
+      # Authenticate to GCP (Workload Identity Federation)
+      # Using repo-matched provider
+      # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets[matrix.wif_provider_secret] }}
-          service_account: github-terraform-${{ matrix.environment }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          service_account: ${{ matrix.sa_name }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
 
+      # --------------------------------------------------
+      # Configure Docker auth
+      # --------------------------------------------------
       - name: Configure Docker Auth
         run: gcloud auth configure-docker ${{ secrets[matrix.registry_secret] }} --quiet
 
+      # --------------------------------------------------
+      # Run tests
+      # --------------------------------------------------
       - name: Run tests
         run: echo "✅ Running unit tests"
 
+      # --------------------------------------------------
+      # Build & push images
+      # --------------------------------------------------
       - name: Build & Push Images
         run: |
           SERVICES=(application-service patient-service order-service)
+
           for S in "${SERVICES[@]}"; do
             docker buildx build \
               --platform linux/amd64 \
@@ -85,6 +105,9 @@ jobs:
               ./services/$S
           done
 
+      # --------------------------------------------------
+      # Generate image metadata
+      # --------------------------------------------------
       - name: Generate image metadata
         run: |
           printf '{"application":"%s","patient":"%s","order":"%s"}' \
@@ -93,6 +116,9 @@ jobs:
             "${{ secrets[matrix.registry_secret] }}/order-service:${IMAGE_TAG}" \
             > images.json
 
+      # --------------------------------------------------
+      # Upload metadata
+      # --------------------------------------------------
       - name: Upload image metadata
         uses: actions/upload-artifact@v4
         with:

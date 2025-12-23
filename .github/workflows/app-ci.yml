@@ -5,9 +5,11 @@ on:
     workflows: ["Terraform Apply - Dev"]
     types:
       - completed
+  workflow_dispatch:
 
 env:
   IMAGE_TAG: sha-${{ github.sha }}
+  PROJECT_ID: massive-sandbox-477717-k3
 
 permissions:
   id-token: write
@@ -15,67 +17,86 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build & Push (${{ github.ref_name }})
+    name: Build & Push Images
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name }}
+    environment: dev
 
     steps:
-      - uses: actions/checkout@v4
+      # --------------------------------------------------
+      # Checkout code
+      # --------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v2
-      - uses: docker/setup-buildx-action@v2
+      # --------------------------------------------------
+      # Docker buildx setup
+      # --------------------------------------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-      # Install gcloud
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # --------------------------------------------------
+      # Setup gcloud
+      # --------------------------------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # Authenticate only on push
+      # --------------------------------------------------
+      # Authenticate to GCP using Workload Identity Federation
+      # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
-
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
 
+      # --------------------------------------------------
+      # Configure Docker auth for Artifact Registry
+      # --------------------------------------------------
       - name: Configure Docker Auth
-        if: github.event_name == 'workflow_run'
-        run: gcloud auth configure-docker --quiet
+        run: gcloud auth configure-docker ${{ secrets.DEV_REGISTRY }} --quiet
 
-      # Run tests
+      # --------------------------------------------------
+      # Run tests (placeholder)
+      # --------------------------------------------------
       - name: Run tests
         run: echo "✅ Running unit tests"
 
-      # Select registry
-      - name: Select Registry
-        id: registry
-        run: echo "REGISTRY=${{ secrets.DEV_REGISTRY }}" >> $GITHUB_OUTPUT
-
+      # --------------------------------------------------
       # Build & push images
+      # --------------------------------------------------
       - name: Build & Push Images
-        if: github.event_name == 'workflow_run'
         run: |
           SERVICES=(application-service patient-service order-service)
+
           for S in "${SERVICES[@]}"; do
             docker buildx build \
               --platform linux/amd64 \
               --push \
-              -t ${{ steps.registry.outputs.REGISTRY }}/$S:$IMAGE_TAG \
+              -t ${{ secrets.DEV_REGISTRY }}/$S:${IMAGE_TAG} \
               ./services/$S
           done
 
-      # Generate image metadata
-      - name: Generate Image Metadata
+      # --------------------------------------------------
+      # Generate image metadata for CD pipeline
+      # --------------------------------------------------
+      - name: Generate image metadata
         run: |
           printf '{"application":"%s","patient":"%s","order":"%s"}' \
-            "${{ steps.registry.outputs.REGISTRY }}/application-service:$IMAGE_TAG" \
-            "${{ steps.registry.outputs.REGISTRY }}/patient-service:$IMAGE_TAG" \
-            "${{ steps.registry.outputs.REGISTRY }}/order-service:$IMAGE_TAG" > images.json
+            "${{ secrets.DEV_REGISTRY }}/application-service:${IMAGE_TAG}" \
+            "${{ secrets.DEV_REGISTRY }}/patient-service:${IMAGE_TAG}" \
+            "${{ secrets.DEV_REGISTRY }}/order-service:${IMAGE_TAG}" \
+            > images.json
 
+      # --------------------------------------------------
       # Upload metadata artifact
-      - name: Upload Image Metadata
+      # --------------------------------------------------
+      - name: Upload image metadata
         uses: actions/upload-artifact@v4
         with:
           name: images

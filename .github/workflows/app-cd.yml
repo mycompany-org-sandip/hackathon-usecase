@@ -8,13 +8,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: "app-cd-${{ github.ref_name }}"
+  group: app-cd-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   deploy:
     name: Deploy to GKE via Helm
     runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
 
     strategy:
       matrix:
@@ -26,6 +27,7 @@ jobs:
             region_secret: DEV_GKE_REGION
             service_account_secret: DEV_SA
             helm_timeout: 10m
+
           - environment: staging
             branch: staging
             registry_secret: STG_REGISTRY
@@ -33,6 +35,7 @@ jobs:
             region_secret: STG_GKE_REGION
             service_account_secret: STG_SA
             helm_timeout: 10m
+
           - environment: prod
             branch: main
             registry_secret: PROD_REGISTRY
@@ -46,68 +49,89 @@ jobs:
       id-token: write
 
     steps:
-      - name: Only run on matching branch
+      # --------------------------------------------------
+      # Decide if this matrix entry should deploy
+      # --------------------------------------------------
+      - name: Check branch match
         id: should_deploy
         run: |
-          if [[ "${{ github.ref_name }}" == "${{ matrix.branch }}" ]]; then
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          if [[ "$BRANCH" == "${{ matrix.branch }}" ]]; then
             echo "deploy=true" >> $GITHUB_OUTPUT
           else
             echo "deploy=false" >> $GITHUB_OUTPUT
           fi
 
+      # --------------------------------------------------
+      # Checkout code
+      # --------------------------------------------------
       - name: Checkout
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # Download image metadata from App CI workflow
+      # --------------------------------------------------
       - name: Download images metadata
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: actions/download-artifact@v4
         with:
           name: images
+          run-id: ${{ github.event.workflow_run.id }}
           path: images
 
+      # --------------------------------------------------
+      # Authenticate to GCP using Workload Identity Federation
+      # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets[ matrix.service_account_secret ] }}
-
-      - name: Get GKE credentials
-        if: steps.should_deploy.outputs.deploy == 'true'
-        uses: google-github-actions/get-gke-credentials@v0
-        with:
-          cluster_name: ${{ secrets[ matrix.cluster_secret ] }}
-          location: ${{ secrets[ matrix.region_secret ] }}
+          service_account: ${{ secrets[matrix.service_account_secret] }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+      # --------------------------------------------------
+      # Get GKE credentials
+      # --------------------------------------------------
+      - name: Get GKE credentials
+        if: steps.should_deploy.outputs.deploy == 'true'
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ secrets[matrix.cluster_secret] }}
+          location: ${{ secrets[matrix.region_secret] }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      # --------------------------------------------------
+      # Setup Helm
+      # --------------------------------------------------
       - name: Setup Helm
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: azure/setup-helm@v3
 
+      # --------------------------------------------------
+      # Extract image repos & tags
+      # --------------------------------------------------
       - name: Prepare image tags
         if: steps.should_deploy.outputs.deploy == 'true'
         id: imgs
         run: |
-          cp images/images.json ./images.json
+          cp images/images.json images.json
+
           APP_IMG=$(jq -r '.application' images.json)
           PAT_IMG=$(jq -r '.patient' images.json)
           ORD_IMG=$(jq -r '.order' images.json)
 
-          APP_REPO="${APP_IMG%:*}"
-          APP_TAG="${APP_IMG##*:}"
-          PAT_REPO="${PAT_IMG%:*}"
-          PAT_TAG="${PAT_IMG##*:}"
-          ORD_REPO="${ORD_IMG%:*}"
-          ORD_TAG="${ORD_IMG##*:}"
+          echo "app_repo=${APP_IMG%:*}" >> $GITHUB_OUTPUT
+          echo "app_tag=${APP_IMG##*:}" >> $GITHUB_OUTPUT
+          echo "patient_repo=${PAT_IMG%:*}" >> $GITHUB_OUTPUT
+          echo "patient_tag=${PAT_IMG##*:}" >> $GITHUB_OUTPUT
+          echo "order_repo=${ORD_IMG%:*}" >> $GITHUB_OUTPUT
+          echo "order_tag=${ORD_IMG##*:}" >> $GITHUB_OUTPUT
 
-          echo "app_repo=${APP_REPO}" >> $GITHUB_OUTPUT
-          echo "app_tag=${APP_TAG}" >> $GITHUB_OUTPUT
-          echo "patient_repo=${PAT_REPO}" >> $GITHUB_OUTPUT
-          echo "patient_tag=${PAT_TAG}" >> $GITHUB_OUTPUT
-          echo "order_repo=${ORD_REPO}" >> $GITHUB_OUTPUT
-          echo "order_tag=${ORD_TAG}" >> $GITHUB_OUTPUT
-
+      # --------------------------------------------------
+      # Deploy via Helm
+      # --------------------------------------------------
       - name: Helm upgrade (apply)
         if: steps.should_deploy.outputs.deploy == 'true'
         working-directory: helm/umbrella
@@ -115,7 +139,8 @@ jobs:
           helm upgrade --install hackathon-umbrella . \
             --namespace "${{ matrix.environment }}" \
             --create-namespace \
-            --wait --timeout "${{ matrix.helm_timeout }}" \
+            --wait \
+            --timeout "${{ matrix.helm_timeout }}" \
             --set application-service.image.repository=${{ steps.imgs.outputs.app_repo }} \
             --set application-service.image.tag=${{ steps.imgs.outputs.app_tag }} \
             --set patient-service.image.repository=${{ steps.imgs.outputs.patient_repo }} \

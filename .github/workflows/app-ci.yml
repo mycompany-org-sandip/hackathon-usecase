@@ -2,14 +2,15 @@ name: App CI - Build & Push Images
 
 on:
   workflow_run:
-    workflows: ["Terraform Apply - Dev"]
-    types:
-      - completed
-  workflow_dispatch:
+    workflows:
+      - Terraform Apply - Dev
+      - Terraform Apply - Staging
+      - Terraform Apply - Prod
+    types: [completed]
 
 env:
   IMAGE_TAG: sha-${{ github.sha }}
-  PROJECT_ID: massive-sandbox-477717-k3
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
 
 permissions:
   id-token: write
@@ -17,83 +18,81 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build & Push Images
+    name: Build & Push Images (${{ matrix.environment }})
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ matrix.environment }}
+
+    strategy:
+      matrix:
+        include:
+          - environment: dev
+            terraform_workflow: Terraform Apply - Dev
+            registry_secret: DEV_REGISTRY
+            wif_provider_secret: WIF_PROVIDER_DEV
+
+          - environment: staging
+            terraform_workflow: Terraform Apply - Staging
+            registry_secret: STG_REGISTRY
+            wif_provider_secret: WIF_PROVIDER_STG
+
+          - environment: prod
+            terraform_workflow: Terraform Apply - Prod
+            registry_secret: PROD_REGISTRY
+            wif_provider_secret: WIF_PROVIDER_PROD
+
+     
+   
+     # Run only when the matching Terraform workflow succeeds
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
 
     steps:
-      # --------------------------------------------------
-      # Checkout code
-      # --------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # Docker buildx setup
-      # --------------------------------------------------
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # --------------------------------------------------
-      # Setup gcloud
-      # --------------------------------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # --------------------------------------------------
-      # Authenticate to GCP using Workload Identity Federation
-      # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.DEV_SA }}
+          workload_identity_provider: ${{ secrets[matrix.wif_provider_secret] }}
+          service_account: github-terraform-${{ matrix.environment }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
-      # --------------------------------------------------
-      # Configure Docker auth for Artifact Registry
-      # --------------------------------------------------
       - name: Configure Docker Auth
-        run: gcloud auth configure-docker ${{ secrets.DEV_REGISTRY }} --quiet
+        run: gcloud auth configure-docker ${{ secrets[matrix.registry_secret] }} --quiet
 
-      # --------------------------------------------------
-      # Run tests (placeholder)
-      # --------------------------------------------------
       - name: Run tests
         run: echo "✅ Running unit tests"
 
-      # --------------------------------------------------
-      # Build & push images
-      # --------------------------------------------------
       - name: Build & Push Images
         run: |
           SERVICES=(application-service patient-service order-service)
-
           for S in "${SERVICES[@]}"; do
             docker buildx build \
               --platform linux/amd64 \
               --push \
-              -t ${{ secrets.DEV_REGISTRY }}/$S:${IMAGE_TAG} \
+              -t ${{ secrets[matrix.registry_secret] }}/$S:${IMAGE_TAG} \
               ./services/$S
           done
 
-      # --------------------------------------------------
-      # Generate image metadata for CD pipeline
-      # --------------------------------------------------
       - name: Generate image metadata
         run: |
           printf '{"application":"%s","patient":"%s","order":"%s"}' \
-            "${{ secrets.DEV_REGISTRY }}/application-service:${IMAGE_TAG}" \
-            "${{ secrets.DEV_REGISTRY }}/patient-service:${IMAGE_TAG}" \
-            "${{ secrets.DEV_REGISTRY }}/order-service:${IMAGE_TAG}" \
+            "${{ secrets[matrix.registry_secret] }}/application-service:${IMAGE_TAG}" \
+            "${{ secrets[matrix.registry_secret] }}/patient-service:${IMAGE_TAG}" \
+            "${{ secrets[matrix.registry_secret] }}/order-service:${IMAGE_TAG}" \
             > images.json
 
-      # --------------------------------------------------
-      # Upload metadata artifact
-      # --------------------------------------------------
       - name: Upload image metadata
         uses: actions/upload-artifact@v4
         with:

@@ -63,6 +63,24 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      # 🧩 Import existing secrets into state (idempotent)
+      - name: Terraform Import existing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          secrets=("db-connection" "api-key" "another-secret")
+          for s in "${secrets[@]}"; do
+            addr="module.secret_manager.google_secret_manager_secret.secrets[\"$s\"]"
+            id="projects/${PROJECT_ID}/secrets/${s}"
+            if terraform state show "$addr" >/dev/null 2>&1; then
+              echo "State already has: $s"
+            else
+              echo "Importing secret into state: $s"
+              # Import may fail if resource concurrently created; don't fail the job
+              terraform import "$addr" "$id" || true
+            fi
+          done
+
       # 🔑 Apply IAM first
       - name: Terraform Apply IAM
         run: terraform apply -auto-approve -target=module.iam

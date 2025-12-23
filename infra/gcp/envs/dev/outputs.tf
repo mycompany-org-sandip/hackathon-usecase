@@ -59,8 +59,3 @@ output "repository_url" {
 }
 
 
-#vxcgvfkhjx#
-#nbfbdmfbdbdbc#
-#hdhhsjhjsadhd#
-#hdghfdsjafjahsdfjds#
-#dvsfvdvfdvfdsvfvhj#

@@ -1,0 +1,108 @@
+name: App CD - Dev - Deploy to GKE via Helm
+
+on:
+  workflow_run:
+    workflows: ["App CI - Dev - Build & Push Images"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: app-cd-dev
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+  ENVIRONMENT: dev
+
+jobs:
+  deploy-dev:
+    name: Deploy to GKE (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+
+    # ✅ Deploy ONLY if CI succeeded
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      # --------------------------------------------------
+      # Checkout repo
+      # --------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------
+      # Download image metadata from CI
+      # --------------------------------------------------
+      - name: Download image metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: images-dev
+          run-id: ${{ github.event.workflow_run.id }}
+          path: images
+
+      # --------------------------------------------------
+      # Authenticate to GCP (WIF - Dev)
+      # --------------------------------------------------
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          project_id: ${{ env.PROJECT_ID }}
+
+      # --------------------------------------------------
+      # Get GKE credentials (Dev)
+      # --------------------------------------------------
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ secrets.DEV_GKE_CLUSTER }}
+          location: ${{ secrets.DEV_GKE_REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      # --------------------------------------------------
+      # Setup Helm
+      # --------------------------------------------------
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      # --------------------------------------------------
+      # Parse image tags
+      # --------------------------------------------------
+      - name: Prepare image tags
+        id: imgs
+        run: |
+          cp images/images.json images.json
+
+          APP_IMG=$(jq -r '.application' images.json)
+          PAT_IMG=$(jq -r '.patient' images.json)
+          ORD_IMG=$(jq -r '.order' images.json)
+
+          echo "app_repo=${APP_IMG%:*}" >> $GITHUB_OUTPUT
+          echo "app_tag=${APP_IMG##*:}" >> $GITHUB_OUTPUT
+          echo "patient_repo=${PAT_IMG%:*}" >> $GITHUB_OUTPUT
+          echo "patient_tag=${PAT_IMG##*:}" >> $GITHUB_OUTPUT
+          echo "order_repo=${ORD_IMG%:*}" >> $GITHUB_OUTPUT
+          echo "order_tag=${ORD_IMG##*:}" >> $GITHUB_OUTPUT
+
+      # --------------------------------------------------
+      # Deploy via Helm (Dev)
+      # --------------------------------------------------
+      - name: Helm upgrade (dev)
+        working-directory: helm/umbrella
+        run: |
+          helm upgrade --install hackathon-umbrella . \
+            --namespace dev \
+            --create-namespace \
+            --wait \
+            --timeout 10m \
+            --set application-service.image.repository=${{ steps.imgs.outputs.app_repo }} \
+            --set application-service.image.tag=${{ steps.imgs.outputs.app_tag }} \
+            --set patient-service.image.repository=${{ steps.imgs.outputs.patient_repo }} \
+            --set patient-service.image.tag=${{ steps.imgs.outputs.patient_tag }} \
+            --set order-service.image.repository=${{ steps.imgs.outputs.order_repo }} \
+            --set order-service.image.tag=${{ steps.imgs.outputs.order_tag }}

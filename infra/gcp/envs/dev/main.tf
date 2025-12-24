@@ -152,5 +152,3 @@ module "gke" {
 # End of configuration
 # -------------------------------
 
-#ggjh#
-#gfhgfhjf#

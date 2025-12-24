@@ -6,10 +6,6 @@ on:
       - "infra/gcp/envs/dev/**"
       - "infra/gcp/modules/**"
 
-env:
-  # Prefer repo variable, fallback to secret if provided
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
-
 permissions:
   id-token: write       # required for WIF
   contents: read
@@ -21,7 +17,14 @@ concurrency:
 jobs:
   terraform-plan-dev:
     runs-on: ubuntu-latest
+    environment: dev
     timeout-minutes: 30
+
+    # Define env at the job level so all steps inherit it
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_SA: ${{ secrets.DEV_SA }}
 
     defaults:
       run:
@@ -42,15 +45,14 @@ jobs:
             echo "PROJECT_ID is not set. Define 'GCP_PROJECT_ID' in repo variables or secrets." >&2
             exit 1
           fi
-          if [ -z "${{ secrets.WIF_PROVIDER_DEV }}" ]; then
+          if [ -z "${WIF_PROVIDER_DEV}" ]; then
             echo "WIF_PROVIDER_DEV secret is not set. Add the Workload Identity Provider resource name." >&2
             exit 1
           fi
 
       - name: Validate WIF provider format
         run: |
-          PROVIDER="${{ secrets.WIF_PROVIDER_DEV }}"
-          if ! echo "$PROVIDER" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[A-Za-z0-9_-]+/providers/[A-Za-z0-9_-]+$'; then
+          if ! echo "${WIF_PROVIDER_DEV}" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[A-Za-z0-9_-]+/providers/[A-Za-z0-9_-]+$'; then
             echo "WIF_PROVIDER_DEV must be 'projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/providers/<provider-id>'" >&2
             exit 1
           fi
@@ -58,17 +60,15 @@ jobs:
 
       - name: Show expected audiences (for GCP config)
         run: |
-          PROVIDER="${{ secrets.WIF_PROVIDER_DEV }}"
           echo "If your provider restricts allowed audiences, include one of these:"
-          echo " - //iam.googleapis.com/${PROVIDER}"
-          echo " - https://iam.googleapis.com/${PROVIDER}"
+          echo " - //iam.googleapis.com/${WIF_PROVIDER_DEV}"
+          echo " - https://iam.googleapis.com/${WIF_PROVIDER_DEV}"
 
-      # Authenticate to GCP via Workload Identity Federation
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          service_account: ${{ secrets.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true

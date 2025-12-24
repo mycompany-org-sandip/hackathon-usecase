@@ -14,6 +14,8 @@ permissions:
 env:
   PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
   TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+  WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+  DEV_SA: ${{ secrets.DEV_SA }}
 
 concurrency:
   group: terraform-dev
@@ -46,6 +48,17 @@ jobs:
           restore-keys: |
             terraform-${{ runner.os }}-
 
+      - name: Validate configuration inputs
+        run: |
+          if [ -z "${PROJECT_ID}" ]; then
+            echo "PROJECT_ID is not set. Define 'GCP_PROJECT_ID' in repo variables or secrets." >&2
+            exit 1
+          fi
+          if [ -z "${WIF_PROVIDER_DEV}" ]; then
+            echo "WIF_PROVIDER_DEV secret is not set. Add the Workload Identity Provider resource name." >&2
+            exit 1
+          fi
+
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
@@ -64,7 +77,6 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # 🧩 Import existing secrets into state (idempotent)
       - name: Terraform Import existing secrets
         shell: bash
         run: |
@@ -77,24 +89,21 @@ jobs:
               echo "State already has: $s"
             else
               echo "Importing secret into state: $s"
-              # Import may fail if resource concurrently created; don't fail the job
               terraform import "$addr" "$id" || true
             fi
           done
 
-      # 🔑 Apply IAM first
       - name: Terraform Apply IAM
         run: terraform apply -auto-approve -target=module.iam
 
       - name: Wait for IAM propagation
         run: sleep 60
 
-      # 🚀 Apply everything else (GKE, secrets, etc.)
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
       - name: Save Terraform outputs
-        run: terraform output -json > tf_outputs.json
+        run: terraform output -json > infra/gcp/envs/dev/tf_outputs.json
 
       - name: Upload Terraform outputs
         uses: actions/upload-artifact@v4

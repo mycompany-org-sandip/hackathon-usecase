@@ -28,14 +28,14 @@ jobs:
     env:
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
       DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
-      DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
+      DEV_GKE_ZONE: ${{ secrets.DEV_GKE_REGION }}
       DEV_SA: ${{ secrets.DEV_SA }}
 
     steps:
       # --------------------------------------------------
       # Checkout repository
       # --------------------------------------------------
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       # --------------------------------------------------
@@ -49,22 +49,14 @@ jobs:
           path: images
 
       # --------------------------------------------------
-      # Authenticate to GCP safely
+      # Authenticate to GCP (WIF)
       # --------------------------------------------------
       - name: Authenticate to GCP
-        run: |
-          if [ -n "$WIF_PROVIDER_DEV" ]; then
-            echo "✅ Using WIF_PROVIDER_DEV"
-            gcloud auth login --brief --workload-identity-provider="$WIF_PROVIDER_DEV" \
-              --service-account="github-terraform-dev@$PROJECT_ID.iam.gserviceaccount.com"
-          elif [ -n "$GCP_SA_KEY_JSON" ]; then
-            echo "✅ Using JSON key"
-            echo "$GCP_SA_KEY_JSON" > key.json
-            gcloud auth activate-service-account --key-file=key.json
-          else
-            echo "❌ No GCP authentication configured or secrets unavailable"
-            exit 1
-          fi
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
+          service_account: ${{ env.DEV_SA }}
+          project_id: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
       # Get GKE credentials
@@ -72,7 +64,7 @@ jobs:
       - name: Get GKE credentials (dev)
         run: |
           gcloud container clusters get-credentials "$DEV_GKE_CLUSTER" \
-            --zone "$DEV_GKE_REGION" \
+            --zone "$DEV_GKE_ZONE" \
             --project "$PROJECT_ID"
 
       # --------------------------------------------------
@@ -82,16 +74,16 @@ jobs:
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Prepare image tags from CI metadata
+      # Prepare dynamic image tags
       # --------------------------------------------------
       - name: Prepare image tags
         id: imgs
         run: |
-          cp images/images.json images.json
+          IMAGES_JSON=images/images.json
 
-          APP_IMG=$(jq -r '.application' images.json)
-          PAT_IMG=$(jq -r '.patient' images.json)
-          ORD_IMG=$(jq -r '.order' images.json)
+          APP_IMG=$(jq -r '.application' "$IMAGES_JSON")
+          PAT_IMG=$(jq -r '.patient' "$IMAGES_JSON")
+          ORD_IMG=$(jq -r '.order' "$IMAGES_JSON")
 
           echo "app_repo=${APP_IMG%:*}" >> $GITHUB_OUTPUT
           echo "app_tag=${APP_IMG##*:}" >> $GITHUB_OUTPUT
@@ -111,19 +103,13 @@ jobs:
             --create-namespace \
             --wait \
             --timeout 10m \
-            --set application-service.image.repository=${APP_REPO} \
-            --set application-service.image.tag=${APP_TAG} \
-            --set patient-service.image.repository=${PATIENT_REPO} \
-            --set patient-service.image.tag=${PATIENT_TAG} \
-            --set order-service.image.repository=${ORDER_REPO} \
-            --set order-service.image.tag=${ORDER_TAG}
+            --set application-service.image.repository=${{ steps.imgs.outputs.app_repo }} \
+            --set application-service.image.tag=${{ steps.imgs.outputs.app_tag }} \
+            --set patient-service.image.repository=${{ steps.imgs.outputs.patient_repo }} \
+            --set patient-service.image.tag=${{ steps.imgs.outputs.patient_tag }} \
+            --set order-service.image.repository=${{ steps.imgs.outputs.order_repo }} \
+            --set order-service.image.tag=${{ steps.imgs.outputs.order_tag }}
         env:
-          APP_REPO: ${{ steps.imgs.outputs.app_repo }}
-          APP_TAG: ${{ steps.imgs.outputs.app_tag }}
-          PATIENT_REPO: ${{ steps.imgs.outputs.patient_repo }}
-          PATIENT_TAG: ${{ steps.imgs.outputs.patient_tag }}
-          ORDER_REPO: ${{ steps.imgs.outputs.order_repo }}
-          ORDER_TAG: ${{ steps.imgs.outputs.order_tag }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
           DEV_GKE_CLUSTER: ${{ env.DEV_GKE_CLUSTER }}
-          DEV_GKE_REGION: ${{ env.DEV_GKE_REGION }}
+          DEV_GKE_ZONE: ${{ env.DEV_GKE_ZONE }}

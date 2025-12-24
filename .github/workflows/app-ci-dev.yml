@@ -16,6 +16,8 @@ env:
   REGISTRY: ${{ vars.DEV_REGISTRY }}
   CLUSTER_NAME: dev-cluster
   CLUSTER_ZONE: us-central1-a
+  WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+  DEV_SA: ${{ secrets.DEV_SA }}
 
 jobs:
   build-and-push-dev:
@@ -45,8 +47,8 @@ jobs:
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: ${{ secrets.DEV_SA }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
+          service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
@@ -94,9 +96,11 @@ jobs:
         run: |
           SERVICES=(application-service patient-service order-service)
           for S in "${SERVICES[@]}"; do
+            echo "🔨 Building & pushing $S..."
             docker buildx build \
               --platform linux/amd64 \
+              --pull \
               --push \
-              -t $REGISTRY/$S:${IMAGE_TAG} .
-
-              
+              -t $REGISTRY/$S:${IMAGE_TAG} \
+              ./services/$S
+          done

@@ -42,6 +42,22 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       # --------------------------------------------------
+      # Validate required WIF secrets
+      # --------------------------------------------------
+      - name: Validate WIF secrets
+        run: |
+          if [ -z "${{ env.WIF_PROVIDER_DEV }}" ]; then
+            echo "❌ Secret WIF_PROVIDER_DEV is not set or empty."
+            echo "Add the full WIF provider resource name to the 'WIF_PROVIDER_DEV' secret."
+            exit 1
+          fi
+          if [ -z "${{ env.DEV_SA }}" ]; then
+            echo "❌ Secret DEV_SA is not set or empty."
+            echo "Add the service account email to the 'DEV_SA' secret."
+            exit 1
+          fi
+
+      # --------------------------------------------------
       # Authenticate to GCP (WIF)
       # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
@@ -50,6 +66,13 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
           service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+          universe: googleapis.com
+          cleanup_credentials: true
+          access_token_lifetime: 3600s
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+          id_token_include_email: false
 
       # --------------------------------------------------
       # Setup gcloud CLI

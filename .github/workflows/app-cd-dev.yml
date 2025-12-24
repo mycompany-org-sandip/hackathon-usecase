@@ -27,9 +27,9 @@ jobs:
 
     env:
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
-      GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
       DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
       DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
+      DEV_SA: ${{ secrets.DEV_SA }}
 
     steps:
       # --------------------------------------------------

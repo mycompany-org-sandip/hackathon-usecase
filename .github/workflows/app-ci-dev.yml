@@ -10,72 +10,53 @@ permissions:
   id-token: write
   contents: read
 
-# Use SHA from Terraform-triggering commit
 env:
   IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CLUSTER_NAME: dev-cluster
+  CLUSTER_ZONE: us-central1-a
 
 jobs:
   build-and-push-dev:
     name: Build & Push Images (dev)
     runs-on: ubuntu-latest
     environment: dev
-
-    # Run only if Terraform succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
-    env:
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      REGISTRY: ${{ vars.DEV_REGISTRY }}
-      CLUSTER_NAME: dev-cluster
-      CLUSTER_ZONE: us-central1-a
+    if: github.event.workflow_run.conclusion == 'success'
 
     steps:
       # --------------------------------------------------
-      # Checkout exact commit that Terraform applied
+      # Checkout repository
       # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      # --------------------------------------------------
+      # Setup Docker Buildx
+      # --------------------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       # --------------------------------------------------
-      # Authenticate to GCP (WIF preferred)
+      # Authenticate to GCP (WIF)
       # --------------------------------------------------
-      - name: Authenticate to GCP (Workload Identity)
-        if: secrets.WIF_PROVIDER_DEV != ''
+      - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-          project_id: ${{ vars.GCP_PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
-          cleanup_credentials: true
+          service_account: ${{ secrets.DEV_SA }}
+          project_id: ${{ env.PROJECT_ID }}
 
-      - name: Authenticate to GCP (JSON key fallback)
-        if: secrets.WIF_PROVIDER_DEV == '' && secrets.GCP_SA_KEY_JSON != ''
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
-          project_id: ${{ vars.GCP_PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
-          cleanup_credentials: true
-
-      - name: Fail if no authentication configured
-        if: secrets.WIF_PROVIDER_DEV == '' && secrets.GCP_SA_KEY_JSON == ''
-        run: |
-          echo "❌ No GCP authentication configured"
-          exit 1
-
+      # --------------------------------------------------
+      # Setup gcloud CLI
+      # --------------------------------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
       # --------------------------------------------------
-      # CHECK: Does DEV cluster exist?
+      # Check DEV GKE cluster
       # --------------------------------------------------
       - name: Check if DEV GKE cluster exists
         id: check_cluster
@@ -95,14 +76,20 @@ jobs:
           exit 0
 
       # --------------------------------------------------
-      # Docker auth + build
+      # Docker authentication
       # --------------------------------------------------
       - name: Configure Docker Auth
         run: gcloud auth configure-docker $REGISTRY --quiet
 
+      # --------------------------------------------------
+      # Run unit tests
+      # --------------------------------------------------
       - name: Run unit tests
         run: echo "✅ Running unit tests (dev)"
 
+      # --------------------------------------------------
+      # Build & push images
+      # --------------------------------------------------
       - name: Build & Push Images
         run: |
           SERVICES=(application-service patient-service order-service)
@@ -111,4 +98,5 @@ jobs:
               --platform linux/amd64 \
               --push \
               -t $REGISTRY/$S:${IMAGE_TAG} .
-          done
+
+              

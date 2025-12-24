@@ -27,12 +27,13 @@ jobs:
 
     env:
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
       DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
       DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
 
     steps:
       # --------------------------------------------------
-      # Checkout repo
+      # Checkout repository
       # --------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,13 +57,14 @@ jobs:
             echo "✅ Using WIF_PROVIDER_DEV"
             gcloud auth login --brief --workload-identity-provider="$WIF_PROVIDER_DEV" \
               --service-account="github-terraform-dev@$PROJECT_ID.iam.gserviceaccount.com"
+          elif [ -n "$GCP_SA_KEY_JSON" ]; then
+            echo "✅ Using JSON key"
+            echo "$GCP_SA_KEY_JSON" > key.json
+            gcloud auth activate-service-account --key-file=key.json
           else
-            echo "❌ WIF_PROVIDER_DEV secret missing"
+            echo "❌ No GCP authentication configured or secrets unavailable"
             exit 1
           fi
-        env:
-          WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
-          PROJECT_ID: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
       # Get GKE credentials
@@ -72,10 +74,6 @@ jobs:
           gcloud container clusters get-credentials "$DEV_GKE_CLUSTER" \
             --zone "$DEV_GKE_REGION" \
             --project "$PROJECT_ID"
-        env:
-          DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
-          DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
-          PROJECT_ID: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
       # Setup Helm
@@ -126,3 +124,6 @@ jobs:
           PATIENT_TAG: ${{ steps.imgs.outputs.patient_tag }}
           ORDER_REPO: ${{ steps.imgs.outputs.order_repo }}
           ORDER_TAG: ${{ steps.imgs.outputs.order_tag }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          DEV_GKE_CLUSTER: ${{ env.DEV_GKE_CLUSTER }}
+          DEV_GKE_REGION: ${{ env.DEV_GKE_REGION }}

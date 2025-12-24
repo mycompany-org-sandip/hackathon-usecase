@@ -10,11 +10,9 @@ permissions:
   id-token: write
   contents: read
 
-# --------------------------------------------------
-# Top-level env (NO secrets)
-# --------------------------------------------------
+# Use SHA from Terraform-triggering commit
 env:
-  IMAGE_TAG: sha-${{ github.sha }}
+  IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
 
 jobs:
   build-and-push-dev:
@@ -22,79 +20,87 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
 
-    # Run only if Terraform Dev succeeded
-    if: github.event.workflow_run.conclusion == 'success'
+    # Run only if Terraform succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
-    # --------------------------------------------------
-    # Job-level env (vars + secrets allowed)
-    # --------------------------------------------------
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGISTRY: ${{ vars.DEV_REGISTRY }}
-      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
-      GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+      CLUSTER_NAME: dev-cluster
+      CLUSTER_ZONE: us-central1-a
 
     steps:
-      - name: Checkout
+      # --------------------------------------------------
+      # Checkout exact commit that Terraform applied
+      # --------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       # --------------------------------------------------
-      # Authenticate to GCP (WIF)
+      # Authenticate to GCP (WIF preferred)
       # --------------------------------------------------
-      - name: Authenticate to GCP (WIF)
-        if: ${{ env.WIF_PROVIDER_DEV != '' }}
+      - name: Authenticate to GCP (Workload Identity)
+        if: secrets.WIF_PROVIDER_DEV != ''
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
-          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          service_account: github-terraform-dev@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          project_id: ${{ vars.GCP_PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
           cleanup_credentials: true
 
-      - name: Using WIF authentication
-        if: ${{ env.WIF_PROVIDER_DEV != '' }}
-        run: 'echo "✅ Auth path: WIF"'
-
-      # --------------------------------------------------
-      # Fallback JSON auth
-      # --------------------------------------------------
       - name: Authenticate to GCP (JSON key fallback)
-        if: ${{ env.WIF_PROVIDER_DEV == '' && env.GCP_SA_KEY_JSON != '' }}
+        if: secrets.WIF_PROVIDER_DEV == '' && secrets.GCP_SA_KEY_JSON != ''
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ env.GCP_SA_KEY_JSON }}
-          project_id: ${{ env.PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
           cleanup_credentials: true
 
-      - name: Using JSON key authentication
-        if: ${{ env.WIF_PROVIDER_DEV == '' && env.GCP_SA_KEY_JSON != '' }}
-        run: 'echo "✅ Auth path: JSON key"'
-
-      # --------------------------------------------------
-      # Fail fast if no auth
-      # --------------------------------------------------
-      - name: Fail if auth inputs missing
-        if: ${{ env.WIF_PROVIDER_DEV == '' && env.GCP_SA_KEY_JSON == '' }}
+      - name: Fail if no authentication configured
+        if: secrets.WIF_PROVIDER_DEV == '' && secrets.GCP_SA_KEY_JSON == ''
         run: |
-          echo "❌ No authentication configured"
+          echo "❌ No GCP authentication configured"
           exit 1
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      # --------------------------------------------------
+      # CHECK: Does DEV cluster exist?
+      # --------------------------------------------------
+      - name: Check if DEV GKE cluster exists
+        id: check_cluster
+        run: |
+          if gcloud container clusters describe "$CLUSTER_NAME" \
+            --zone "$CLUSTER_ZONE" \
+            --project "$PROJECT_ID" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop CI if cluster does not exist
+        if: steps.check_cluster.outputs.exists == 'false'
+        run: |
+          echo "⚠️ Dev cluster does not exist. Skipping CI."
+          exit 0
+
+      # --------------------------------------------------
+      # Docker auth + build
+      # --------------------------------------------------
       - name: Configure Docker Auth
         run: gcloud auth configure-docker $REGISTRY --quiet
 
-      - name: Run tests
+      - name: Run unit tests
         run: echo "✅ Running unit tests (dev)"
 
       - name: Build & Push Images
@@ -104,4 +110,5 @@ jobs:
             docker buildx build \
               --platform linux/amd64 \
               --push \
-              -t $REGISTRY/$S:${IMAGE_TAG} \
+              -t $REGISTRY/$S:${IMAGE_TAG} .
+          done

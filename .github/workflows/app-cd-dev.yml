@@ -14,9 +14,6 @@ permissions:
   contents: read
   id-token: write
 
-# --------------------------------------------------
-# Top-level env (NO secrets here)
-# --------------------------------------------------
 env:
   PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   ENVIRONMENT: dev
@@ -26,15 +23,9 @@ jobs:
     name: Deploy to GKE (dev)
     runs-on: ubuntu-latest
     environment: dev
-
-    # Run ONLY if CI succeeded
     if: github.event.workflow_run.conclusion == 'success'
 
-    # --------------------------------------------------
-    # Job-level env (secrets allowed here)
-    # --------------------------------------------------
     env:
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
       DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
       DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
@@ -57,26 +48,34 @@ jobs:
           path: images
 
       # --------------------------------------------------
-      # Authenticate to GCP (Workload Identity Federation)
+      # Authenticate to GCP safely
       # --------------------------------------------------
-      - name: Authenticate to GCP (WIF)
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
-          project_id: ${{ env.PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
+      - name: Authenticate to GCP
+        run: |
+          if [ -n "$WIF_PROVIDER_DEV" ]; then
+            echo "✅ Using WIF_PROVIDER_DEV"
+            gcloud auth login --brief --workload-identity-provider="$WIF_PROVIDER_DEV" \
+              --service-account="github-terraform-dev@$PROJECT_ID.iam.gserviceaccount.com"
+          else
+            echo "❌ WIF_PROVIDER_DEV secret missing"
+            exit 1
+          fi
+        env:
+          WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
       # Get GKE credentials
       # --------------------------------------------------
       - name: Get GKE credentials (dev)
-        uses: google-github-actions/get-gke-credentials@v1
-        with:
-          cluster_name: ${{ env.DEV_GKE_CLUSTER }}
-          location: ${{ env.DEV_GKE_REGION }}
-          project_id: ${{ env.PROJECT_ID }}
+        run: |
+          gcloud container clusters get-credentials "$DEV_GKE_CLUSTER" \
+            --zone "$DEV_GKE_REGION" \
+            --project "$PROJECT_ID"
+        env:
+          DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
+          DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
       # Setup Helm
@@ -104,7 +103,7 @@ jobs:
           echo "order_tag=${ORD_IMG##*:}" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------
-      # Deploy using Helm
+      # Deploy using Helm with dynamic image tags
       # --------------------------------------------------
       - name: Helm upgrade (dev)
         working-directory: helm/umbrella
@@ -114,9 +113,16 @@ jobs:
             --create-namespace \
             --wait \
             --timeout 10m \
-            --set application-service.image.repository=${{ steps.imgs.outputs.app_repo }} \
-            --set application-service.image.tag=${{ steps.imgs.outputs.app_tag }} \
-            --set patient-service.image.repository=${{ steps.imgs.outputs.patient_repo }} \
-            --set patient-service.image.tag=${{ steps.imgs.outputs.patient_tag }} \
-            --set order-service.image.repository=${{ steps.imgs.outputs.order_repo }} \
-            --set order-service.image.tag=${{ steps.imgs.outputs.order_tag }}
+            --set application-service.image.repository=${APP_REPO} \
+            --set application-service.image.tag=${APP_TAG} \
+            --set patient-service.image.repository=${PATIENT_REPO} \
+            --set patient-service.image.tag=${PATIENT_TAG} \
+            --set order-service.image.repository=${ORDER_REPO} \
+            --set order-service.image.tag=${ORDER_TAG}
+        env:
+          APP_REPO: ${{ steps.imgs.outputs.app_repo }}
+          APP_TAG: ${{ steps.imgs.outputs.app_tag }}
+          PATIENT_REPO: ${{ steps.imgs.outputs.patient_repo }}
+          PATIENT_TAG: ${{ steps.imgs.outputs.patient_tag }}
+          ORDER_REPO: ${{ steps.imgs.outputs.order_repo }}
+          ORDER_TAG: ${{ steps.imgs.outputs.order_tag }}

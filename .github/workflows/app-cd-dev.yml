@@ -2,9 +2,9 @@ name: App CD - Dev - Deploy to GKE via Helm
 
 on:
   workflow_run:
-    workflows: ["App CI - Dev - Build & Push Images"]
+    workflows:
+      - App CI - Dev - Build & Push Images
     types: [completed]
- 
 
 concurrency:
   group: app-cd-dev
@@ -14,8 +14,11 @@ permissions:
   contents: read
   id-token: write
 
+# --------------------------------------------------
+# Top-level env (NO secrets here)
+# --------------------------------------------------
 env:
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   ENVIRONMENT: dev
 
 jobs:
@@ -24,8 +27,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
 
-    # ✅ Deploy ONLY if CI succeeded
+    # Run ONLY if CI succeeded
     if: github.event.workflow_run.conclusion == 'success'
+
+    # --------------------------------------------------
+    # Job-level env (secrets allowed here)
+    # --------------------------------------------------
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
+      DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
 
     steps:
       # --------------------------------------------------
@@ -45,23 +57,25 @@ jobs:
           path: images
 
       # --------------------------------------------------
-      # Authenticate to GCP (WIF - Dev)
+      # Authenticate to GCP (Workload Identity Federation)
       # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
           service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       # --------------------------------------------------
-      # Get GKE credentials (Dev)
+      # Get GKE credentials
       # --------------------------------------------------
-      - name: Get GKE credentials
+      - name: Get GKE credentials (dev)
         uses: google-github-actions/get-gke-credentials@v1
         with:
-          cluster_name: ${{ secrets.DEV_GKE_CLUSTER }}
-          location: ${{ secrets.DEV_GKE_REGION }}
+          cluster_name: ${{ env.DEV_GKE_CLUSTER }}
+          location: ${{ env.DEV_GKE_REGION }}
           project_id: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
@@ -71,7 +85,7 @@ jobs:
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Parse image tags
+      # Prepare image tags from CI metadata
       # --------------------------------------------------
       - name: Prepare image tags
         id: imgs
@@ -90,7 +104,7 @@ jobs:
           echo "order_tag=${ORD_IMG##*:}" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------
-      # Deploy via Helm (Dev)
+      # Deploy using Helm
       # --------------------------------------------------
       - name: Helm upgrade (dev)
         working-directory: helm/umbrella

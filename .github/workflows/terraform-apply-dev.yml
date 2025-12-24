@@ -22,6 +22,7 @@ concurrency:
 jobs:
   terraform-apply-dev:
     runs-on: ubuntu-latest
+    environment: dev
     timeout-minutes: 45
 
     defaults:
@@ -49,7 +50,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: github-terraform-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          service_account: ${{ secrets.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true

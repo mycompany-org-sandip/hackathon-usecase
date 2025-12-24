@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: ["App CI - Dev - Build & Push Images"]
     types: [completed]
-  workflow_dispatch:
+ 
 
 concurrency:
   group: app-cd-dev

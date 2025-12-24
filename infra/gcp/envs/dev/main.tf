@@ -153,8 +153,3 @@ module "gke" {
 # -------------------------------
 
 
-#hfvfjhgfh#
-#hjjhhjgj#
-#hgfjjhgjh#
-#m,en,dn,fnnE#mndbsmndbmnd#
-#nhbdmdfmdmfhnfmnsd#

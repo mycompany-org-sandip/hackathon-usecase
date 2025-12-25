@@ -49,7 +49,7 @@ jobs:
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
           service_account: ${{ secrets.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true

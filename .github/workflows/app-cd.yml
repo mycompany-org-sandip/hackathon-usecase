@@ -96,7 +96,7 @@ jobs:
         if: steps.should_deploy.outputs.deploy == 'true'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
           service_account: ${{ secrets[matrix.service_account_secret] }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 

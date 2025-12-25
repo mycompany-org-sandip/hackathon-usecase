@@ -120,7 +120,8 @@ jobs:
         # Docker authentication
         # --------------------------------------------------
         - name: Configure Docker Auth
-          run: gcloud auth configure-docker $REGISTRY --quiet
+          run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
 
         # --------------------------------------------------
         # Run unit tests
@@ -133,18 +134,22 @@ jobs:
         # --------------------------------------------------
         - name: Build & Push Images
           run: |
-            # Normalize registry (remove trailing slash if any)
-            REGISTRY="${REGISTRY%/}"
+           REGISTRY="${REGISTRY%/}"
 
-            echo "REGISTRY=$REGISTRY"
-            echo "IMAGE_TAG=$IMAGE_TAG"
+           if [[ -z "$REGISTRY" ]]; then
+           echo "❌ REGISTRY is empty"
+           exit 1
+           fi
 
-            SERVICES=(application-service patient-service order-service)
+           echo "REGISTRY=$REGISTRY"
+           echo "IMAGE_TAG=$IMAGE_TAG"
 
-            for S in "${SERVICES[@]}"; do
-              docker buildx build \
-                --platform linux/amd64 \
-                --push \
-                -t "$REGISTRY/$S:$IMAGE_TAG" \
-                "./services/$S"
-            done
+           SERVICES=(application-service patient-service order-service)
+
+           for S in "${SERVICES[@]}"; do
+            docker buildx build \
+           --platform linux/amd64 \
+            --push \
+            -t "$REGISTRY/$S:$IMAGE_TAG" \
+            "./services/$S"
+             done

@@ -10,12 +10,17 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: app-ci-dev
+  cancel-in-progress: true  # Cancel older runs if a new one is triggered
+
 jobs:
-   build-and-push-dev:
+  build-and-push-dev:
     name: Build & Push Images (dev)
     runs-on: ubuntu-latest
     environment: dev
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.head_sha == github.sha &&
+        github.event.workflow_run.conclusion == 'success'  # Only run for the latest commit and successful upstream workflow
 
     env:
       IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
@@ -26,41 +31,26 @@ jobs:
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
       DEV_SA: ${{ secrets.DEV_SA }}
 
-
     steps:
-      # --------------------------------------------------
-      # Checkout repository
-      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      # --------------------------------------------------
-      # Setup Docker Buildx
-      # --------------------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # --------------------------------------------------
-      # Validate required WIF secrets
-      # --------------------------------------------------
       - name: Validate WIF secrets
         run: |
           if [ -z "${{ env.WIF_PROVIDER_DEV }}" ]; then
-            echo "❌ Secret WIF_PROVIDER_DEV is not set or empty."
-            echo "Add the full WIF provider resource name to the 'WIF_PROVIDER_DEV' secret."
+            echo "❌ WIF_PROVIDER_DEV secret is missing"
             exit 1
           fi
           if [ -z "${{ env.DEV_SA }}" ]; then
-            echo "❌ Secret DEV_SA is not set or empty."
-            echo "Add the service account email to the 'DEV_SA' secret."
+            echo "❌ DEV_SA secret is missing"
             exit 1
           fi
 
-      # --------------------------------------------------
-      # Authenticate to GCP (WIF)
-      # --------------------------------------------------
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
@@ -75,15 +65,9 @@ jobs:
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
           id_token_include_email: false
 
-      # --------------------------------------------------
-      # Setup gcloud CLI
-      # --------------------------------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # --------------------------------------------------
-      # Check DEV GKE cluster
-      # --------------------------------------------------
       - name: Check if DEV GKE cluster exists
         id: check_cluster
         run: |
@@ -101,21 +85,12 @@ jobs:
           echo "⚠️ Dev cluster does not exist. Skipping CI."
           exit 0
 
-      # --------------------------------------------------
-      # Docker authentication
-      # --------------------------------------------------
       - name: Configure Docker Auth
         run: gcloud auth configure-docker $REGISTRY --quiet
 
-      # --------------------------------------------------
-      # Run unit tests
-      # --------------------------------------------------
       - name: Run unit tests
         run: echo "✅ Running unit tests (dev)"
 
-      # --------------------------------------------------
-      # Build & push images
-      # --------------------------------------------------
       - name: Build & Push Images
         run: |
           SERVICES=(application-service patient-service order-service)

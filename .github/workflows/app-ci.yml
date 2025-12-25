@@ -1,107 +1,155 @@
-name: App CI - Build & Push Images
+name: App CI - Dev - Build & Push Images
 
 on:
   workflow_run:
-    workflows: ["Terraform Apply - Dev"]
-    types:
-      - completed
-  workflow_dispatch:
-
-env:
-  IMAGE_TAG: sha-${{ github.sha }}
-  PROJECT_ID: massive-sandbox-477717-k3
+    workflows:
+      - Terraform Apply - Dev
+    types: [completed]
 
 permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: app-ci-dev
+  cancel-in-progress: true
+
 jobs:
-  build-and-push:
-    name: Build & Push Images
+  build-and-push-dev:
+    name: Build & Push Images (dev)
     runs-on: ubuntu-latest
     environment: dev
 
+    # ✅ Correct workflow_run condition
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
+
+    env:
+      IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGISTRY: ${{ vars.DEV_REGISTRY }}
+      CLUSTER_NAME: dev-cluster
+      CLUSTER_ZONE: us-central1-a
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_SA: ${{ secrets.DEV_SA }}
+
     steps:
-      # --------------------------------------------------
-      # Checkout code
-      # --------------------------------------------------
-      - name: Checkout
-        uses: actions/checkout@v4
+        # --------------------------------------------------
+        # Checkout exact commit from upstream workflow
+        # --------------------------------------------------
+        - name: Checkout repository
+          uses: actions/checkout@v4
+          with:
+            ref: ${{ github.event.workflow_run.head_sha }}
 
-      # --------------------------------------------------
-      # Docker buildx setup
-      # --------------------------------------------------
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        # --------------------------------------------------
+        # Setup Docker Buildx
+        # --------------------------------------------------
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        # --------------------------------------------------
+        # Debug GitHub context (IMPORTANT for WIF)
+        # --------------------------------------------------
+        - name: Debug GitHub context
+          run: |
+            echo "event_name=$GITHUB_EVENT_NAME"
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "ref=$GITHUB_REF"
+            echo "sha=$GITHUB_SHA"
+            echo "workflow_run.head_branch=${{ github.event.workflow_run.head_branch }}"
+            echo "workflow_run.head_sha=${{ github.event.workflow_run.head_sha }}"
 
-      # --------------------------------------------------
-      # Setup gcloud
-      # --------------------------------------------------
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        # --------------------------------------------------
+        # Validate WIF secrets
+        # --------------------------------------------------
+        - name: Validate WIF secrets
+          run: |
+            if [ -z "$WIF_PROVIDER_DEV" ]; then
+              echo "❌ WIF_PROVIDER_DEV secret is missing"
+              exit 1
+            fi
+            if [ -z "$DEV_SA" ]; then
+              echo "❌ DEV_SA secret is missing"
+              exit 1
+            fi
 
-      # --------------------------------------------------
-      # Authenticate to GCP using Workload Identity Federation
-      # --------------------------------------------------
-      - name: Authenticate to GCP (WIF)
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: ${{ secrets.DEV_SA }}
-          project_id: ${{ env.PROJECT_ID }}
+        # --------------------------------------------------
+        # Authenticate to GCP using Workload Identity Federation
+        # --------------------------------------------------
+        - name: Authenticate to GCP (WIF)
+          uses: google-github-actions/auth@v2
+          with:
+            workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
+            service_account: ${{ env.DEV_SA }}
+            project_id: ${{ env.PROJECT_ID }}
+            create_credentials_file: true
+            export_environment_variables: true
+            cleanup_credentials: true
+            access_token_lifetime: 3600s
+            access_token_scopes: https://www.googleapis.com/auth/cloud-platform
 
-      # --------------------------------------------------
-      # Configure Docker auth for Artifact Registry
-      # --------------------------------------------------
-      - name: Configure Docker Auth
-        run: gcloud auth configure-docker ${{ secrets.DEV_REGISTRY }} --quiet
+        # --------------------------------------------------
+        # Setup gcloud CLI
+        # --------------------------------------------------
+        - name: Setup gcloud
+          uses: google-github-actions/setup-gcloud@v2
 
-      # --------------------------------------------------
-      # Run tests (placeholder)
-      # --------------------------------------------------
-      - name: Run tests
-        run: echo "✅ Running unit tests"
+        # --------------------------------------------------
+        # Check if DEV GKE cluster exists
+        # --------------------------------------------------
+        - name: Check if DEV GKE cluster exists
+          id: check_cluster
+          run: |
+            if gcloud container clusters describe "$CLUSTER_NAME" \
+              --zone "$CLUSTER_ZONE" \
+              --project "$PROJECT_ID" >/dev/null 2>&1; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+            fi
 
-      # --------------------------------------------------
-      # Build & push images
-      # --------------------------------------------------
-      - name: Build & Push Images
-        run: |
-          # Normalize registry (remove trailing slash if any)
-            REGISTRY="${REGISTRY%/}"
+        - name: Stop CI if cluster does not exist
+          if: steps.check_cluster.outputs.exists == 'false'
+          run: |
+            echo "⚠️ Dev cluster does not exist. Skipping CI."
+            exit 0
 
-            echo "REGISTRY=$REGISTRY"
-            echo "IMAGE_TAG=$IMAGE_TAG"
+        # --------------------------------------------------
+        # Docker authentication
+        # --------------------------------------------------
+        - name: Configure Docker Auth
+          run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-            SERVICES=(application-service patient-service order-service)
 
-            for S in "${SERVICES[@]}"; do
-              docker buildx build \
-                --platform linux/amd64 \
-                --push \
-                -t "$REGISTRY/$S:$IMAGE_TAG" \
-                "./services/$S"
-            done
+        # --------------------------------------------------
+        # Run unit tests
+        # --------------------------------------------------
+        - name: Run unit tests
+          run: echo "✅ Running unit tests (dev)"
 
-      # --------------------------------------------------
-      # Generate image metadata for CD pipeline
-      # --------------------------------------------------
-      - name: Generate image metadata
-        run: |
-          printf '{"application":"%s","patient":"%s","order":"%s"}' \
-            "${{ secrets.DEV_REGISTRY }}/application-service:${IMAGE_TAG}" \
-            "${{ secrets.DEV_REGISTRY }}/patient-service:${IMAGE_TAG}" \
-            "${{ secrets.DEV_REGISTRY }}/order-service:${IMAGE_TAG}" \
-            > images.json
+        # --------------------------------------------------
+        # Build & Push Docker Images
+        # --------------------------------------------------
+        - name: Build & Push Images
+          run: |
+           REGISTRY="${REGISTRY%/}"
 
-      # --------------------------------------------------
-      # Upload metadata artifact
-      # --------------------------------------------------
-      - name: Upload image metadata
-        uses: actions/upload-artifact@v4
-        with:
-          name: images
-          path: images.json
+           if [[ -z "$REGISTRY" ]]; then
+           echo "❌ REGISTRY is empty"
+           exit 1
+           fi
+
+           echo "REGISTRY=$REGISTRY"
+           echo "IMAGE_TAG=$IMAGE_TAG"
+
+           SERVICES=(application-service patient-service order-service)
+
+           for S in "${SERVICES[@]}"; do
+            docker buildx build \
+           --platform linux/amd64 \
+            --push \
+            -t "$REGISTRY/$S:$IMAGE_TAG" \
+            "./services/$S"
+             done

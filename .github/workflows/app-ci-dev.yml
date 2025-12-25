@@ -136,20 +136,20 @@ jobs:
           run: |
            REGISTRY="${REGISTRY%/}"
 
-           if [[ -z "$REGISTRY" ]]; then
-           echo "❌ REGISTRY is empty"
-           exit 1
-           fi
+            if [[ -z "$REGISTRY" ]]; then
+            echo "❌ REGISTRY is empty"
+            exit 1
+            fi
 
-           echo "REGISTRY=$REGISTRY"
-           echo "IMAGE_TAG=$IMAGE_TAG"
+            echo "REGISTRY=$REGISTRY"
+            echo "IMAGE_TAG=$IMAGE_TAG"
 
-           SERVICES=(application-service patient-service order-service)
+            SERVICES=(application-service patient-service order-service)
 
            for S in "${SERVICES[@]}"; do
-            docker buildx build \
+           docker buildx build \
            --platform linux/amd64 \
-            --push \
-            -t "$REGISTRY/$S:$IMAGE_TAG" \
-            "./services/$S"
-             done
+           --push \
+           -t "$REGISTRY/$S:$IMAGE_TAG" \
+           "./$S"
+           done

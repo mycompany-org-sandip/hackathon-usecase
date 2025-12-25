@@ -128,18 +128,24 @@ jobs:
       - name: Run unit tests
         run: echo "✅ Running unit tests (dev)"
 
+
       # --------------------------------------------------
       # Build & Push Docker Images
       # --------------------------------------------------
       - name: Build & Push Images
         run: |
           SERVICES=(application-service patient-service order-service)
+
           for S in "${SERVICES[@]}"; do
             echo "🔨 Building & pushing $S..."
+
             docker buildx build \
               --platform linux/amd64 \
               --pull \
               --push \
-              -t $REGISTRY/$S:${IMAGE_TAG} \
-              ./services/$S
+              -t "$REGISTRY/$S:${IMAGE_TAG}" \
+              "./services/$S"
           done
+
+
+

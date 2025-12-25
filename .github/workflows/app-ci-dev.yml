@@ -133,16 +133,18 @@ jobs:
         # --------------------------------------------------
         - name: Build & Push Images
           run: |
-           echo "IMAGE_TAG=${IMAGE_TAG}"
+            # Normalize registry (remove trailing slash if any)
+            REGISTRY="${REGISTRY%/}"
 
-           SERVICES=(application-service patient-service order-service)
+            echo "REGISTRY=$REGISTRY"
+            echo "IMAGE_TAG=$IMAGE_TAG"
 
-           for S in "${SERVICES[@]}"; do
-             docker buildx build \
-            --platform linux/amd64 \
-            --push \
-            -t ${DEV_REGISTRY}/${S}:${IMAGE_TAG} \
-             ./services/${S}
-           done
+            SERVICES=(application-service patient-service order-service)
 
-           echo "✅ Successfully built and pushed images"
+            for S in "${SERVICES[@]}"; do
+              docker buildx build \
+                --platform linux/amd64 \
+                --push \
+                -t "$REGISTRY/$S:$IMAGE_TAG" \
+                "./services/$S"
+            done

@@ -1,51 +1,69 @@
-name: App CI - Build & Push Images
+name: Terraform Plan - Dev
 
 on:
-  workflow_run:
-    workflows: ["Terraform Apply - Dev"]
-    types:
-      - completed
-  workflow_dispatch:
-
-env:
-  IMAGE_TAG: sha-${{ github.sha }}
-  PROJECT_ID: massive-sandbox-477717-k3
+  pull_request:
+    paths:
+      - "infra/gcp/envs/dev/**"
+      - "infra/gcp/modules/**"
 
 permissions:
-  id-token: write
+  id-token: write       # required for WIF
   contents: read
 
+concurrency:
+  group: terraform-plan-dev-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build-and-push:
-    name: Build & Push Images
+  terraform-plan-dev:
     runs-on: ubuntu-latest
     environment: dev
+    timeout-minutes: 30
+
+    # Define env at the job level so all steps inherit it
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_SA: ${{ secrets.DEV_SA }}
+
+    defaults:
+      run:
+        working-directory: infra/gcp/envs/dev
 
     steps:
-      # --------------------------------------------------
-      # Checkout code
-      # --------------------------------------------------
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # Docker buildx setup
-      # --------------------------------------------------
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Validate configuration inputs
+        run: |
+          if [ -z "${PROJECT_ID}" ]; then
+            echo "PROJECT_ID is not set. Define 'GCP_PROJECT_ID' in repo variables or secrets." >&2
+            exit 1
+          fi
+          if [ -z "${WIF_PROVIDER_DEV}" ]; then
+            echo "WIF_PROVIDER_DEV secret is not set. Add the Workload Identity Provider resource name." >&2
+            exit 1
+          fi
 
-      # --------------------------------------------------
-      # Setup gcloud
-      # --------------------------------------------------
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
+      - name: Validate WIF provider format
+        run: |
+          if ! echo "${WIF_PROVIDER_DEV}" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[A-Za-z0-9_-]+/providers/[A-Za-z0-9_-]+$'; then
+            echo "WIF_PROVIDER_DEV must be 'projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/providers/<provider-id>'" >&2
+            exit 1
+          fi
+          echo "Resolved PROJECT_ID: ${PROJECT_ID}"
 
-      # --------------------------------------------------
-      # Authenticate to GCP using Workload Identity Federation
-      # --------------------------------------------------
+      - name: Show expected audiences (for GCP config)
+        run: |
+          echo "If your provider restricts allowed audiences, include one of these:"
+          echo " - //iam.googleapis.com/${WIF_PROVIDER_DEV}"
+          echo " - https://iam.googleapis.com/${WIF_PROVIDER_DEV}"
+
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
@@ -55,55 +73,34 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
-      # --------------------------------------------------
-      # Configure Docker auth for Artifact Registry
-      # --------------------------------------------------
-      - name: Configure Docker Auth
-        run: gcloud auth configure-docker ${{ secrets.DEV_REGISTRY }} --quiet
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: latest
 
-      # --------------------------------------------------
-      # Run tests (placeholder)
-      # --------------------------------------------------
-      - name: Run tests
-        run: echo "✅ Running unit tests"
-
-      # --------------------------------------------------
-      # Build & push images
-      # --------------------------------------------------
-      - name: Build & Push Images
+      - name: Post-auth sanity check
         run: |
-          # Normalize registry (remove trailing slash if any)
-            REGISTRY="${REGISTRY%/}"
+          echo "Active gcloud account (should be the SA):"
+          gcloud auth list --filter=status:ACTIVE
+          echo "Configured project (should match PROJECT_ID):"
+          gcloud config list project --format 'get(core.project)'
+          echo "WhoAmI (principal email):"
+          gcloud auth list --format='value(account)'
 
-            echo "REGISTRY=$REGISTRY"
-            echo "IMAGE_TAG=$IMAGE_TAG"
+      - name: Terraform Init (no backend)
+        run: terraform init -backend=false -input=false
 
-            SERVICES=(application-service patient-service order-service)
+      - name: Terraform Validate
+        run: terraform validate
 
-            for S in "${SERVICES[@]}"; do
-              docker buildx build \
-                --platform linux/amd64 \
-                --push \
-                -t "$REGISTRY/$S:$IMAGE_TAG" \
-                "./services/$S"
-            done
+      - name: Terraform Init (backend)
+        run: terraform init -input=false -backend-config=backend.hcl
 
-      # --------------------------------------------------
-      # Generate image metadata for CD pipeline
-      # --------------------------------------------------
-      - name: Generate image metadata
-        run: |
-          printf '{"application":"%s","patient":"%s","order":"%s"}' \
-            "${{ secrets.DEV_REGISTRY }}/application-service:${IMAGE_TAG}" \
-            "${{ secrets.DEV_REGISTRY }}/patient-service:${IMAGE_TAG}" \
-            "${{ secrets.DEV_REGISTRY }}/order-service:${IMAGE_TAG}" \
-            > images.json
+      - name: Terraform Plan
+        run: terraform plan -no-color
 
-      # --------------------------------------------------
-      # Upload metadata artifact
-      # --------------------------------------------------
-      - name: Upload image metadata
+      - name: Upload Terraform Plan Output
         uses: actions/upload-artifact@v4
         with:
-          name: images
-          path: images.json
+          name: terraform-plan-dev
+          path: infra/gcp/envs/dev/tfplan

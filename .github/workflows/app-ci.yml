@@ -70,15 +70,21 @@ jobs:
       # --------------------------------------------------
       - name: Build & Push Images
         run: |
-          SERVICES=(application-service patient-service order-service)
+          # Normalize registry (remove trailing slash if any)
+            REGISTRY="${REGISTRY%/}"
 
-          for S in "${SERVICES[@]}"; do
-            docker buildx build \
-              --platform linux/amd64 \
-              --push \
-              -t ${{ secrets.DEV_REGISTRY }}/$S:${IMAGE_TAG} \
-              ./services/$S
-          done
+            echo "REGISTRY=$REGISTRY"
+            echo "IMAGE_TAG=$IMAGE_TAG"
+
+            SERVICES=(application-service patient-service order-service)
+
+            for S in "${SERVICES[@]}"; do
+              docker buildx build \
+                --platform linux/amd64 \
+                --push \
+                -t "$REGISTRY/$S:$IMAGE_TAG" \
+                "./services/$S"
+            done
 
       # --------------------------------------------------
       # Generate image metadata for CD pipeline

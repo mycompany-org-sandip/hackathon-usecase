@@ -1,72 +1,44 @@
 name: App CI - Dev - Build & Push Images
 
 on:
-  workflow_run:
-    workflows:
-      - Terraform Apply - Dev
-    types: [completed]
+  workflow_call:   # ✅ REQUIRED
 
 permissions:
   id-token: write
   contents: read
 
-concurrency:
-  group: app-ci-dev
-  cancel-in-progress: true
-
 jobs:
-  build-and-push-dev:
-    name: Build & Push Images (dev)
+  build-and-push:
     runs-on: ubuntu-latest
     environment: dev
 
-    # ✅ Correct condition
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'dev'
-
     env:
-      IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
+      IMAGE_TAG: sha-${{ github.sha }}
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGISTRY: ${{ vars.DEV_REGISTRY }}
-      CLUSTER_NAME: dev-cluster
-      CLUSTER_ZONE: us-central1-a
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
       DEV_SA: ${{ secrets.DEV_SA }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - uses: docker/setup-buildx-action@v2
 
-      - name: Authenticate to GCP (WIF)
+      - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
           service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker Auth
+      - name: Configure Docker
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Build & Push Images
         run: |
-          REGISTRY="${REGISTRY%/}"
           SERVICES=(application-service patient-service order-service)
-
           for S in "${SERVICES[@]}"; do
-            if [ ! -f "./$S/Dockerfile" ]; then
-              echo "⚠️ Skipping $S (Dockerfile not found)"
-              continue
-            fi
-
+            [ -f "./$S/Dockerfile" ] || continue
             docker buildx build \
               --platform linux/amd64 \
               --push \
@@ -74,19 +46,23 @@ jobs:
               "./$S"
           done
 
-      - name: Generate images-dev artifact
+      - name: Generate images artifact
         run: |
           mkdir -p images
           cat <<EOF > images/images.json
           {
-            "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
-            "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
-            "order-service": "${REGISTRY}/order-service:${IMAGE_TAG}"
+            "application-service": "$REGISTRY/application-service:$IMAGE_TAG",
+            "patient-service": "$REGISTRY/patient-service:$IMAGE_TAG",
+            "order-service": "$REGISTRY/order-service:$IMAGE_TAG"
           }
           EOF
 
-      - name: Upload images-dev artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: images-dev
           path: images/images.json
+
+  app-cd:
+    needs: build-and-push
+    uses: ./.github/workflows/app-cd-dev.yml
+    secrets: inherit

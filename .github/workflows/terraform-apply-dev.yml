@@ -11,103 +11,30 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
-  TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
-  WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
-  DEV_SA: ${{ secrets.DEV_SA }}
-
-concurrency:
-  group: terraform-dev
-  cancel-in-progress: false
-
 jobs:
-  terraform-apply-dev:
+  terraform:
     runs-on: ubuntu-latest
     environment: dev
-    timeout-minutes: 45
 
     defaults:
       run:
         working-directory: infra/gcp/envs/dev
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      - name: Cache Terraform providers
-        uses: actions/cache@v4
-        with:
-          path: ~/.terraform.d/plugin-cache
-          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
-          restore-keys: |
-            terraform-${{ runner.os }}-
-
-      - name: Validate configuration inputs
-        run: |
-          if [ -z "${PROJECT_ID}" ]; then
-            echo "PROJECT_ID is not set. Define 'GCP_PROJECT_ID' in repo variables or secrets." >&2
-            exit 1
-          fi
-          if [ -z "${WIF_PROVIDER_DEV}" ]; then
-            echo "WIF_PROVIDER_DEV secret is not set. Add the Workload Identity Provider resource name." >&2
-            exit 1
-          fi
-
-      - name: Authenticate to GCP (WIF)
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: ${{ secrets.DEV_SA }}
-          project_id: ${{ env.PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
-
       - name: Terraform Init
-        run: terraform init -backend-config=backend.hcl -input=false
-
-      - name: Terraform Format
-        run: terraform fmt -check
-
-      - name: Terraform Validate
-        run: terraform validate
-
-      - name: Terraform Import existing secrets
-        shell: bash
-        run: |
-          set -euo pipefail
-          secrets=("db-connection" "api-key" "another-secret")
-          for s in "${secrets[@]}"; do
-            addr="module.secret_manager.google_secret_manager_secret.secrets[\"$s\"]"
-            id="projects/${PROJECT_ID}/secrets/${s}"
-            if terraform state show "$addr" >/dev/null 2>&1; then
-              echo "State already has: $s"
-            else
-              echo "Importing secret into state: $s"
-              terraform import "$addr" "$id" || true
-            fi
-          done
-
-      - name: Terraform Apply IAM
-        run: terraform apply -auto-approve -target=module.iam
-
-      - name: Wait for IAM propagation
-        run: sleep 60
+        run: terraform init -backend-config=backend.hcl
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
-      - name: Save Terraform outputs
-        # Use relative path since working-directory is already infra/gcp/envs/dev
-        run: terraform output -json > tf_outputs.json
-
-      - name: Upload Terraform outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: tf-outputs-dev
-          path: tf_outputs.json
+  ci:
+    name: App CI
+    needs: terraform
+    uses: ./.github/workflows/app-ci-dev.yml
+    secrets: inherit

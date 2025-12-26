@@ -2,15 +2,6 @@ name: App CD - Dev - Deploy to GKE
 
 on:
   workflow_call:
-    secrets:
-      WIF_PROVIDER_DEV:
-        required: true
-      DEV_SA:
-        required: true
-      DEV_GKE_CLUSTER:
-        required: true
-      DEV_GKE_REGION:
-        required: true
 
 permissions:
   id-token: write
@@ -18,6 +9,7 @@ permissions:
 
 jobs:
   deploy:
+    name: Deploy to GKE (dev)
     runs-on: ubuntu-latest
     environment: dev
 
@@ -30,7 +22,7 @@ jobs:
 
     steps:
       # --------------------------------------------------
-      # Checkout repo (Helm charts live here)
+      # Checkout code
       # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,30 +30,17 @@ jobs:
       # --------------------------------------------------
       # Download images artifact from CI
       # --------------------------------------------------
-      - name: Download images artifact
+      - name: Download image metadata
         uses: actions/download-artifact@v4
         with:
           name: images-dev
           path: images
 
       # --------------------------------------------------
-      # Install jq
+      # Install jq (GitHub runner doesn't guarantee it)
       # --------------------------------------------------
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
-
-      # --------------------------------------------------
-      # Validate required secrets (FAIL FAST)
-      # --------------------------------------------------
-      - name: Validate GKE inputs
-        run: |
-          echo "Cluster: $DEV_GKE_CLUSTER"
-          echo "Region:  $DEV_GKE_REGION"
-
-          if [ -z "$DEV_GKE_CLUSTER" ] || [ -z "$DEV_GKE_REGION" ]; then
-            echo "❌ GKE secrets are missing"
-            exit 1
-          fi
 
       # --------------------------------------------------
       # Authenticate to GCP (Workload Identity Federation)
@@ -74,6 +53,21 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
+
+      # --------------------------------------------------
+      # Setup gcloud + install GKE auth plugin (CRITICAL)
+      # --------------------------------------------------
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          install_components: gke-gcloud-auth-plugin
+
+      # --------------------------------------------------
+      # Enable modern GKE authentication
+      # --------------------------------------------------
+      - name: Enable GKE auth plugin
+        run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
       # --------------------------------------------------
       # Get GKE credentials
@@ -91,13 +85,19 @@ jobs:
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Deploy using Helm
+      # Deploy via Helm
       # --------------------------------------------------
       - name: Deploy with Helm
         run: |
+          echo "📦 images.json:"
+          cat images/images.json
+
           helm upgrade --install hackathon helm/umbrella \
             --namespace dev \
             --create-namespace \
+            --atomic \
+            --wait \
+            --timeout 5m \
             --set application.image=$(jq -r '."application-service"' images/images.json) \
             --set patient.image=$(jq -r '."patient-service"' images/images.json) \
             --set order.image=$(jq -r '."order-service"' images/images.json)

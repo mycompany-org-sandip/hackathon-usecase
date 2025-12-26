@@ -95,14 +95,16 @@ jobs:
       - name: Prepare image tags
         id: imgs
         run: |
-          IMAGES_JSON=images/images.json
+         IMAGES_JSON=images/images.json
 
-          jq . "$IMAGES_JSON"
+         jq . "$IMAGES_JSON"
 
-          echo "app_repo=$(jq -r '.application | split(\":\")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-          echo "app_tag=$(jq -r '.application | split(\":\")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
+         echo "app_repo=$(jq -r '."application-service" | split(":")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
+         echo "app_tag=$(jq -r '."application-service" | split(":")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
 
-          echo "patient_repo=$(jq -r '.patient | split(\":\")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-          echo "patient_tag=$(jq -r '.patient | split(\":\")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
+         echo "patient_repo=$(jq -r '."patient-service" | split(":")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
+         echo "patient_tag=$(jq -r '."patient-service" | split(":")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
 
-          echo "order_repo=$(_
+         echo "order_repo=$(jq -r '."order-service" | split(":")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
+         echo "order_tag=$(jq -r '."order-service" | split(":")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
+

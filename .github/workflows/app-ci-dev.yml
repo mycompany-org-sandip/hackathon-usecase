@@ -1,10 +1,9 @@
 name: App CI - Dev - Build & Push Images
 
 on:
-  workflow_run:
-    workflows:
-      - Terraform Apply - Dev
-    types: [completed]
+  push:
+    branches: [dev]
+
 
 permissions:
   id-token: write

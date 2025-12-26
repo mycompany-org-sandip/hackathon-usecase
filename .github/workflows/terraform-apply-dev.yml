@@ -11,30 +11,115 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
 jobs:
   terraform:
+    name: Terraform Apply
     runs-on: ubuntu-latest
     environment: dev
+    timeout-minutes: 45
 
     defaults:
       run:
         working-directory: infra/gcp/envs/dev
 
-    steps:
-      - uses: actions/checkout@v4
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_SA: ${{ secrets.DEV_SA }}
+      TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
 
-      - uses: hashicorp/setup-terraform@v3
+    steps:
+      # ---------------------------
+      # Checkout
+      # ---------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---------------------------
+      # Authenticate to GCP (CRITICAL: must be BEFORE terraform init)
+      # ---------------------------
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
+          service_account: ${{ env.DEV_SA }}
+          project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      # ---------------------------
+      # Setup Terraform
+      # ---------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      - name: Terraform Init
-        run: terraform init -backend-config=backend.hcl
+      # ---------------------------
+      # Cache Terraform providers
+      # ---------------------------
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
 
+      # ---------------------------
+      # Terraform Init (now backend auth works)
+      # ---------------------------
+      - name: Terraform Init
+        run: terraform init -backend-config=backend.hcl -input=false
+
+      # ---------------------------
+      # Terraform Format
+      # ---------------------------
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
+      # ---------------------------
+      # Terraform Validate
+      # ---------------------------
+      - name: Terraform Validate
+        run: terraform validate
+
+      # ---------------------------
+      # Terraform Apply
+      # ---------------------------
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
+      # ---------------------------
+      # Save outputs for downstream workflows
+      # ---------------------------
+      - name: Save Terraform outputs
+        run: terraform output -json > tf_outputs.json
+
+      - name: Upload Terraform outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-outputs-dev
+          path: infra/gcp/envs/dev/tf_outputs.json
+
+  # ===========================
+  # CI (reusable workflow)
+  # ===========================
   ci:
-    name: App CI
+    name: App CI - Dev
     needs: terraform
     uses: ./.github/workflows/app-ci-dev.yml
+    secrets: inherit
+
+  # ===========================
+  # CD (reusable workflow)
+  # ===========================
+  cd:
+    name: App CD - Dev
+    needs: ci
+    uses: ./.github/workflows/app-cd-dev.yml
     secrets: inherit

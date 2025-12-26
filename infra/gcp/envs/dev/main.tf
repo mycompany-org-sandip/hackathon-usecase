@@ -152,11 +152,8 @@ module "gke" {
 # End of configuration
 # -------------------------------
 
-#hfvhjfvvhfvhsj#
-#jbfdsfbdsfbdjksbf#
-#hjafgjdshfdsfhjdsfbvh#
-#hjsagfgdsjhfdhfjhds#
-#hfjvfjhdfhdsjhfsdhfv#
-#bfhdfkhdsfgkdsgbfdgdb#
-#hsajfjhsdfdsfhdsbfdbdhs#
-#jhfbsdhjfgdsfgdshbhdjs3
+#hdfgjhfj,dsfga#
+#hjdgfjsahfjhfhsd#
+#dhjsafjsfvfvjdshfh#
+#hjdfvdvfjdvfdvfdvfjh#
+#HJvgjhsafgjdfdsfvhds#

@@ -1,135 +1,89 @@
-name: App CD - Deploy to GKE via Helm
+name: App CD - Dev - Deploy to GKE via Helm
 
 on:
   workflow_run:
-    workflows: ["App CI - Build & Push Images"]
-    types:
-      - completed
-  workflow_dispatch:
+    workflows:
+      - App CI - Dev - Build & Push Images
+    types: [completed]
 
 concurrency:
-  group: app-cd-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: app-cd-dev
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  ENVIRONMENT: dev
+
 jobs:
-  deploy:
-    name: Deploy to GKE via Helm
+  deploy-dev:
+    name: Deploy to GKE (dev)
     runs-on: ubuntu-latest
-    environment: ${{ matrix.environment }}
+    environment: dev
+    if: github.event.workflow_run.conclusion == 'success'
 
-    strategy:
-      matrix:
-        include:
-          - environment: dev
-            branch: dev
-            cluster_secret: DEV_GKE_CLUSTER
-            region_secret: DEV_GKE_REGION
-            service_account_secret: DEV_SA
-            helm_timeout: 10m
-
-          - environment: staging
-            branch: staging
-            cluster_secret: STG_GKE_CLUSTER
-            region_secret: STG_GKE_REGION
-            service_account_secret: STG_SA
-            helm_timeout: 10m
-
-          - environment: prod
-            branch: main
-            cluster_secret: PROD_GKE_CLUSTER
-            region_secret: PROD_GKE_REGION
-            service_account_secret: PROD_SA
-            helm_timeout: 15m
-
-    permissions:
-      contents: read
-      id-token: write
+    env:
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
+      DEV_GKE_ZONE: ${{ secrets.DEV_GKE_REGION }}
+      DEV_SA: ${{ secrets.DEV_SA }}
 
     steps:
       # --------------------------------------------------
-      # Decide if this environment should deploy
+      # Checkout repository
       # --------------------------------------------------
-      - name: Check branch match
-        id: should_deploy
-        run: |
-          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
-          echo "Trigger branch: $BRANCH"
-          if [[ "$BRANCH" == "${{ matrix.branch }}" ]]; then
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "deploy=false" >> $GITHUB_OUTPUT
-          fi
-
-      # --------------------------------------------------
-      # Checkout repo
-      # --------------------------------------------------
-      - name: Checkout
-        if: steps.should_deploy.outputs.deploy == 'true'
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       # --------------------------------------------------
-      # Download image metadata from CI workflow
+      # Download image metadata from CI
       # --------------------------------------------------
-      - name: Download images metadata
-        if: steps.should_deploy.outputs.deploy == 'true'
+      - name: Download image metadata
         uses: actions/download-artifact@v4
         with:
-          name: images
+          name: images-dev
           run-id: ${{ github.event.workflow_run.id }}
           path: images
 
       # --------------------------------------------------
-      # Authenticate to GCP using Workload Identity Federation
+      # Authenticate to GCP (WIF)
       # --------------------------------------------------
-      - name: Debug WIF secret (temporary)
-        if: steps.should_deploy.outputs.deploy == 'true'
-        run: |
-          if [ -z "${{ secrets.WIF_PROVIDER }}" ]; then
-            echo "❌ WIF_PROVIDER is EMPTY"
-            exit 1
-          else
-            echo "✅ WIF_PROVIDER is PRESENT"
-          fi
-
-      # --------------------------------------------------
-      - name: Authenticate to GCP (WIF)
-        if: steps.should_deploy.outputs.deploy == 'true'
+      - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_DEV }}
-          service_account: ${{ secrets[matrix.service_account_secret] }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
+          service_account: ${{ env.DEV_SA }}
+          project_id: ${{ env.PROJECT_ID }}
 
       # --------------------------------------------------
       # Get GKE credentials
       # --------------------------------------------------
-      - name: Get GKE credentials
-        if: steps.should_deploy.outputs.deploy == 'true'
-        uses: google-github-actions/get-gke-credentials@v1
-        with:
-          cluster_name: ${{ secrets[matrix.cluster_secret] }}
-          location: ${{ secrets[matrix.region_secret] }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+      - name: Get GKE credentials (dev)
+        run: |
+          gcloud container clusters get-credentials "$DEV_GKE_CLUSTER" \
+            --zone "$DEV_GKE_ZONE" \
+            --project "$PROJECT_ID"
 
       # --------------------------------------------------
       # Setup Helm
       # --------------------------------------------------
       - name: Setup Helm
-        if: steps.should_deploy.outputs.deploy == 'true'
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Parse image tags
+      # Prepare dynamic image tags
       # --------------------------------------------------
       - name: Prepare image tags
-        if: steps.should_deploy.outputs.deploy == 'true'
         id: imgs
         run: |
-          cp images/images.json images.json
+          IMAGES_JSON=images/images.json
 
-          APP_IMG=$(jq -r '.application' images.json)
-          PAT_IMG=$(jq -r '.patient' images.json)
-          ORD_IMG=$(jq -r '.order' images.json)
+          APP_IMG=$(jq -r '.application' "$IMAGES_JSON")
+          PAT_IMG=$(jq -r '.patient' "$IMAGES_JSON")
+          ORD_IMG=$(jq -r '.order' "$IMAGES_JSON")
 
           echo "app_repo=${APP_IMG%:*}" >> $GITHUB_OUTPUT
           echo "app_tag=${APP_IMG##*:}" >> $GITHUB_OUTPUT
@@ -139,20 +93,23 @@ jobs:
           echo "order_tag=${ORD_IMG##*:}" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------
-      # Deploy via Helm
+      # Deploy using Helm with dynamic image tags
       # --------------------------------------------------
-      - name: Helm upgrade (apply)
-        if: steps.should_deploy.outputs.deploy == 'true'
+      - name: Helm upgrade (dev)
         working-directory: helm/umbrella
         run: |
           helm upgrade --install hackathon-umbrella . \
-            --namespace "${{ matrix.environment }}" \
+            --namespace dev \
             --create-namespace \
             --wait \
-            --timeout "${{ matrix.helm_timeout }}" \
+            --timeout 10m \
             --set application-service.image.repository=${{ steps.imgs.outputs.app_repo }} \
             --set application-service.image.tag=${{ steps.imgs.outputs.app_tag }} \
             --set patient-service.image.repository=${{ steps.imgs.outputs.patient_repo }} \
             --set patient-service.image.tag=${{ steps.imgs.outputs.patient_tag }} \
             --set order-service.image.repository=${{ steps.imgs.outputs.order_repo }} \
             --set order-service.image.tag=${{ steps.imgs.outputs.order_tag }}
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          DEV_GKE_CLUSTER: ${{ env.DEV_GKE_CLUSTER }}
+          DEV_GKE_ZONE: ${{ env.DEV_GKE_ZONE }}

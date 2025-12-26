@@ -62,7 +62,4 @@ jobs:
           name: images-dev
           path: images/images.json
 
-  app-cd:
-    needs: build-and-push
-    uses: ./.github/workflows/app-cd-dev.yml
-    secrets: inherit
+ 

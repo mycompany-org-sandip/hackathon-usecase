@@ -1,71 +1,70 @@
-name: App CD - Dev - Deploy to GKE via Helm
+name: App CD - Dev - Deploy to GKE
 
 on:
-  workflow_run:
-    workflows:
-      - App CI - Dev - Build & Push Images
-    types: [completed]
-
-concurrency:
-  group: app-cd-dev
-  cancel-in-progress: true
+  workflow_call:
+    secrets:
+      WIF_PROVIDER_DEV:
+        required: true
+      DEV_SA:
+        required: true
+      DEV_GKE_CLUSTER:
+        required: true
+      DEV_GKE_REGION:
+        required: true
 
 permissions:
-  contents: read
   id-token: write
-
-env:
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-  ENVIRONMENT: dev
+  contents: read
 
 jobs:
-  deploy-dev:
-    name: Deploy to GKE (dev)
+  deploy:
     runs-on: ubuntu-latest
     environment: dev
 
-    # ✅ HARD gate – only successful CI on dev branch
-    if: |
-      github.event.workflow_run.conclusion == 'success' 
-
     env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
-      DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
-      DEV_GKE_ZONE: ${{ secrets.DEV_GKE_REGION }}
       DEV_SA: ${{ secrets.DEV_SA }}
+      DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
+      DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
 
     steps:
       # --------------------------------------------------
-      # Debug workflow_run context (CRITICAL)
-      # --------------------------------------------------
-      - name: Debug workflow_run context
-        run: |
-          echo "workflow=${{ github.event.workflow_run.name }}"
-          echo "conclusion=${{ github.event.workflow_run.conclusion }}"
-          echo "head_branch=${{ github.event.workflow_run.head_branch }}"
-          echo "head_sha=${{ github.event.workflow_run.head_sha }}"
-          echo "run_id=${{ github.event.workflow_run.id }}"
-
-      # --------------------------------------------------
-      # Checkout exact same commit CI used
+      # Checkout repo (Helm charts live here)
       # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       # --------------------------------------------------
-      # Download image metadata from CI
+      # Download images artifact from CI
       # --------------------------------------------------
-      - name: Download images-dev artifact
+      - name: Download images artifact
         uses: actions/download-artifact@v4
         with:
           name: images-dev
-          run-id: ${{ github.event.workflow_run.id }}
           path: images
 
       # --------------------------------------------------
-      # Authenticate to GCP (WIF)
+      # Install jq
+      # --------------------------------------------------
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # --------------------------------------------------
+      # Validate required secrets (FAIL FAST)
+      # --------------------------------------------------
+      - name: Validate GKE inputs
+        run: |
+          echo "Cluster: $DEV_GKE_CLUSTER"
+          echo "Region:  $DEV_GKE_REGION"
+
+          if [ -z "$DEV_GKE_CLUSTER" ] || [ -z "$DEV_GKE_REGION" ]; then
+            echo "❌ GKE secrets are missing"
+            exit 1
+          fi
+
+      # --------------------------------------------------
+      # Authenticate to GCP (Workload Identity Federation)
       # --------------------------------------------------
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -73,14 +72,16 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
           service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       # --------------------------------------------------
       # Get GKE credentials
       # --------------------------------------------------
-      - name: Get GKE credentials (dev)
+      - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials "$DEV_GKE_CLUSTER" \
-            --zone "$DEV_GKE_ZONE" \
+            --region "$DEV_GKE_REGION" \
             --project "$PROJECT_ID"
 
       # --------------------------------------------------
@@ -90,21 +91,13 @@ jobs:
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Parse image tags
+      # Deploy using Helm
       # --------------------------------------------------
-      - name: Prepare image tags
-        id: imgs
+      - name: Deploy with Helm
         run: |
-         IMAGES_JSON=images/images.json
-
-         jq . "$IMAGES_JSON"
-
-         echo "app_repo=$(jq -r '."application-service" | split(":")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-         echo "app_tag=$(jq -r '."application-service" | split(":")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-
-         echo "patient_repo=$(jq -r '."patient-service" | split(":")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-         echo "patient_tag=$(jq -r '."patient-service" | split(":")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-
-         echo "order_repo=$(jq -r '."order-service" | split(":")[0]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-         echo "order_tag=$(jq -r '."order-service" | split(":")[1]' $IMAGES_JSON)" >> $GITHUB_OUTPUT
-
+          helm upgrade --install hackathon helm/umbrella \
+            --namespace dev \
+            --create-namespace \
+            --set application.image=$(jq -r '."application-service"' images/images.json) \
+            --set patient.image=$(jq -r '."patient-service"' images/images.json) \
+            --set order.image=$(jq -r '."order-service"' images/images.json)

@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "patient-service.fullname" . }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ include "patient-service.name" . }}
 spec:
@@ -15,17 +14,20 @@ spec:
       labels:
         app: {{ include "patient-service.name" . }}
     spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml .Values.global.imagePullSecrets | nindent 6 }}
+      {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: {{ include "patient-service.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
           env:
-            {{- if .Values.global.keyvault.enabled }}
-            - name: KEYVAULT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.global.keyvault.secretName }}
-                  key: {{ .Values.global.keyvault.secretKey }}
-            {{- end }}
+          {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+          {{- end }}
+          resources:
+{{- toYaml .Values.resources | nindent 12 }}

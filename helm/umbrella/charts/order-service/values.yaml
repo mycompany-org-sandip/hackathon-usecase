@@ -1,7 +1,7 @@
 image:
-  repository: gcr.io/massive-sandbox-477717-k3/order-service
-  tag: "1.0"
-  imagePullPolicy: IfNotPresent
+  repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/patient-service
+  tag: sha-7ff788cd3de52002eb5da310773a985fec086c48
+imagePullPolicy: IfNotPresent
 service:
   port: 8080
 replicaCount: 1

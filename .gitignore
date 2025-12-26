@@ -23,3 +23,5 @@ terraform.tfstate
 terraform.tfstate.backup
 *.tfstate
 *.tfstate.backup
+
+massive-sandbox-477717-k3-3f2f0589c59e.json

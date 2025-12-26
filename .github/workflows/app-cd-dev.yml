@@ -26,8 +26,7 @@ jobs:
 
     # ✅ HARD gate – only successful CI on dev branch
     if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'dev'
+      github.event.workflow_run.conclusion == 'success' 
 
     env:
       WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}

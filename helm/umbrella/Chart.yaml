@@ -1,0 +1,17 @@
+apiVersion: v2
+name: hackathon
+description: An umbrella chart for the hackathon project
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: patient-service
+    version: 0.1.0
+    repository: file://charts/patient-service
+  - name: application-service
+    version: 0.1.0
+    repository: file://charts/application-service
+  - name: order-service
+    version: 0.1.0
+    repository: file://charts/order-service

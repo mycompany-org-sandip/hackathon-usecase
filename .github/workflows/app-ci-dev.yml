@@ -37,14 +37,18 @@ jobs:
       - name: Build & Push Images
         run: |
           SERVICES=(application-service patient-service order-service)
+
           for S in "${SERVICES[@]}"; do
-            [ -f "./$S/Dockerfile" ] || continue
-            docker buildx build \
-              --platform linux/amd64 \
-              --push \
-              -t "$REGISTRY/$S:$IMAGE_TAG" \
-              "./$S"
+          if [ -f "./$S/Dockerfile" ]; then
+          docker buildx build \
+          --platform linux/amd64 \
+          --push \
+          -t "$REGISTRY/$S:$IMAGE_TAG" \
+          -t "$REGISTRY/$S:latest" \
+          "./$S"
+          fi
           done
+
 
       - name: Generate images artifact
         run: |

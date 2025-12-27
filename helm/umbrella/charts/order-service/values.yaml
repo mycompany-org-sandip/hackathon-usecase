@@ -1,13 +1,15 @@
+
 image:
-  repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/patient-service
+  repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/order-service
   tag: sha-7ff788cd3de52002eb5da310773a985fec086c48
+
 imagePullPolicy: IfNotPresent
+
+replicaCount: 1
+
 service:
   port: 8080
-replicaCount: 1
+
 resources: {}
+
 env: []
-global:
-  imagePullSecrets: []
-  keyvault:
-    enabled: false  # or true if you want it enabled

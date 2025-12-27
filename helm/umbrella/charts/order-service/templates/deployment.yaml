@@ -19,9 +19,9 @@ spec:
       {{- toYaml .Values.global.imagePullSecrets | nindent 6 }}
       {{- end }}
       containers:
-        - name: order-service
+        - name: {{ include "order-service.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.imagePullPolicy | default "IfNotPresent" }}
+          imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
           env:
@@ -29,20 +29,5 @@ spec:
             - name: {{ .name }}
               value: {{ .value | quote }}
           {{- end }}
-          {{- if and .Values.global.keyvault .Values.global.keyvault.enabled }}
-          volumeMounts:
-            - name: kv-secrets
-              mountPath: /mnt/secrets
-              readOnly: true
-          {{- end }}
           resources:
 {{- toYaml .Values.resources | nindent 12 }}
-      {{- if and .Values.global.keyvault .Values.global.keyvault.enabled }}
-      volumes:
-        - name: kv-secrets
-          csi:
-            driver: secrets-store.csi.k8s.io
-            readOnly: true
-            volumeAttributes:
-              secretProviderClass: {{ default "kv-secrets" .Values.global.keyvault.spClassName }}
-      {{- end }}

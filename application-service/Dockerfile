@@ -18,4 +18,4 @@ EXPOSE 8081
 ENV PYTHONUNBUFFERED=1
 
 # Command to run the application (update as needed)
-CMD ["python", "app.py"]
+CMD ["python", "src/app.py"]

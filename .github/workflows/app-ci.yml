@@ -42,10 +42,10 @@ jobs:
 
          SERVICES=(application-service patient-service order-service)
 
-         for S in "${SERVICES[@]}"; do
-         if [ -f "./$S/Dockerfile" ]; then
+          for S in "${SERVICES[@]}"; do
+          if [ -f "./$S/Dockerfile" ]; then
           echo "Building and pushing $S..."
-         docker buildx build \
+           docker buildx build \
           --platform linux/amd64,linux/arm64 \
           --push \
           -t "${REGISTRY}/${S}:${IMAGE_TAG}" \
@@ -58,16 +58,17 @@ jobs:
          run: |
          set -euo pipefail
 
-         mkdir -p images
-         cat <<EOF > images/images.json
+          mkdir -p images
+          cat <<EOF > images/images.json
          {
-         "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
-         "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
+          "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
+          "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
           "order-service": "${REGISTRY}/order-service:${IMAGE_TAG}"
          }
          EOF
 
-          jq . images/images.json
+         jq . images/images.json
+
 
 
 

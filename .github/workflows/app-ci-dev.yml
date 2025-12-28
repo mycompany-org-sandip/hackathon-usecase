@@ -1,7 +1,7 @@
 name: App CI - Dev - Build & Push Images
 
 on:
-  workflow_call:   # ✅ REQUIRED
+  workflow_call:
 
 permissions:
   id-token: write
@@ -20,9 +20,11 @@ jobs:
       DEV_SA: ${{ secrets.DEV_SA }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -31,39 +33,37 @@ jobs:
           service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Configure Docker
+      - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-      - name: Build & Push Images
+      - name: Build & Push Multi-Arch Images
         run: |
           SERVICES=(application-service patient-service order-service)
-
           for S in "${SERVICES[@]}"; do
-          if [ -f "./$S/Dockerfile" ]; then
-          docker buildx build \
-          --platform linux/amd64 \
-          --push \
-          -t "$REGISTRY/$S:$IMAGE_TAG" \
-          -t "$REGISTRY/$S:latest" \
-          "./$S"
-          fi
+            if [ -f "./$S/Dockerfile" ]; then
+              echo "Building and pushing $S..."
+              docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --push \
+                -t "$REGISTRY/$S:$IMAGE_TAG" \
+                -t "$REGISTRY/$S:latest" \
+                "./$S"
+            fi
           done
-
 
       - name: Generate images artifact
         run: |
           mkdir -p images
           cat <<EOF > images/images.json
           {
-            "application-service": "$REGISTRY/application-service:$IMAGE_TAG",
-            "patient-service": "$REGISTRY/patient-service:$IMAGE_TAG",
-            "order-service": "$REGISTRY/order-service:$IMAGE_TAG"
-          }
-          EOF
+           "application-service": "$REGISTRY/application-service:$IMAGE_TAG",
+           "patient-service": "$REGISTRY/patient-service:$IMAGE_TAG",
+           "order-service": "$REGISTRY/order-service:$IMAGE_TAG"
+            }
+           EOF
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload images artifact
+        uses: actions/upload-artifact@v4
         with:
           name: images-dev
           path: images/images.json
-
- 

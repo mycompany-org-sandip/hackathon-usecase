@@ -51,16 +51,19 @@ jobs:
             fi
           done
 
-      - name: Generate images artifact
-        run: |
-          mkdir -p images
-          cat <<EOF > images/images.json
+          - name: Generate images.json
+           run: |
+           mkdir -p images
+           cat <<EOF > images/images.json
           {
-           "application-service": "$REGISTRY/application-service:$IMAGE_TAG",
-           "patient-service": "$REGISTRY/patient-service:$IMAGE_TAG",
-           "order-service": "$REGISTRY/order-service:$IMAGE_TAG"
-            }
+           "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
+           "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
+          "order-service": "${REGISTRY}/order-service:${IMAGE_TAG}"
+           }
            EOF
+
+           jq . images/images.json
+
 
       - name: Upload images artifact
         uses: actions/upload-artifact@v4

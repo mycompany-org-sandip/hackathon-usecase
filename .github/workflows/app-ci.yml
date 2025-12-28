@@ -51,16 +51,79 @@ jobs:
             fi
           done
 
-      - name: Generate images artifact
+    name: App CI - Dev - Build & Push Images
+
+on:
+  workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    env:
+      IMAGE_TAG: sha-${{ github.sha }}
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGISTRY: ${{ vars.DEV_REGISTRY }}
+      WIF_PROVIDER_DEV: ${{ secrets.WIF_PROVIDER_DEV }}
+      DEV_SA: ${{ secrets.DEV_SA }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
+          service_account: ${{ env.DEV_SA }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build & Push Multi-Arch Images
         run: |
-          mkdir -p images
-          cat <<EOF > images/images.json
-             {
-          "application-service": "$REGISTRY/application-service:$IMAGE_TAG",
-          "patient-service": "$REGISTRY/patient-service:$IMAGE_TAG",
-          "order-service": "$REGISTRY/order-service:$IMAGE_TAG"
-                 }
-              EOF
+          SERVICES=(application-service patient-service order-service)
+          for S in "${SERVICES[@]}"; do
+            if [ -f "./$S/Dockerfile" ]; then
+              echo "Building and pushing $S..."
+              docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --push \
+                -t "$REGISTRY/$S:$IMAGE_TAG" \
+                -t "$REGISTRY/$S:latest" \
+                "./$S"
+            fi
+          done
+
+          - name: Generate images.json
+           run: |
+           mkdir -p images
+           cat <<EOF > images/images.json
+          {
+           "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
+           "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
+          "order-service": "${REGISTRY}/order-service:${IMAGE_TAG}"
+           }
+           EOF
+
+           jq . images/images.json
+
+
+      - name: Upload images artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-dev
+          path: images/images.json
+
 
       - name: Upload images artifact
         uses: actions/upload-artifact@v4

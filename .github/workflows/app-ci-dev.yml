@@ -38,31 +38,33 @@ jobs:
 
       - name: Build & Push Multi-Arch Images
         run: |
-          SERVICES=(application-service patient-service order-service)
-          for S in "${SERVICES[@]}"; do
-            if [ -f "./$S/Dockerfile" ]; then
-              echo "Building and pushing $S..."
-              docker buildx build \
-                --platform linux/amd64,linux/arm64 \
-                --push \
-                -t "$REGISTRY/$S:$IMAGE_TAG" \
-                -t "$REGISTRY/$S:latest" \
-                "./$S"
-            fi
-          done
+         SERVICES=(application-service patient-service order-service)
 
-          - name: Generate images.json
-           run: |
-           mkdir -p images
-           cat <<EOF > images/images.json
-          {
-           "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
-           "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
+         for S in "${SERVICES[@]}"; do
+         if [ -f "./$S/Dockerfile" ]; then
+          echo "Building and pushing $S..."
+           docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --push \
+          -t "${REGISTRY}/${S}:${IMAGE_TAG}" \
+          -t "${REGISTRY}/${S}:latest" \
+          "./${S}"
+         fi
+         done
+
+         - name: Generate images.json
+          run: |
+          mkdir -p images
+         cat <<EOF > images/images.json
+         {
+            "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
+          "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
           "order-service": "${REGISTRY}/order-service:${IMAGE_TAG}"
            }
-           EOF
+         EOF
 
            jq . images/images.json
+
 
 
       - name: Upload images artifact

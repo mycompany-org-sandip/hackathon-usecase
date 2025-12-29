@@ -96,8 +96,8 @@ jobs:
             --namespace dev \
             --create-namespace \
             --atomic \
-            --wait \
-            --timeout 5m \
+            --timeout 10m \
+            --debug \
             --set application.image=$(jq -r '."application-service"' images/images.json) \
             --set patient.image=$(jq -r '."patient-service"' images/images.json) \
             --set order.image=$(jq -r '."order-service"' images/images.json)

@@ -20,12 +20,21 @@ jobs:
       DEV_SA: ${{ secrets.DEV_SA }}
 
     steps:
-      - name: Checkout code
+      # --------------------------------------------------
+      # Checkout code
+      # --------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # Set up Docker Buildx
+      # --------------------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # --------------------------------------------------
+      # Authenticate to GCP (Workload Identity Federation)
+      # --------------------------------------------------
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -33,9 +42,16 @@ jobs:
           service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
 
+      # --------------------------------------------------
+      # Configure Docker for Artifact Registry
+      # --------------------------------------------------
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
+      # --------------------------------------------------
+      # Build & Push Multi-Arch Images
+      # --------------------------------------------------
       - name: Build & Push Multi-Arch Images
         run: |
           set -euo pipefail
@@ -44,33 +60,14 @@ jobs:
 
           for S in "${SERVICES[@]}"; do
             if [ -f "./$S/Dockerfile" ]; then
-              echo "Building and pushing $S..."
+              echo "🚀 Building and pushing $S..."
               docker buildx build \
                 --platform linux/amd64,linux/arm64 \
                 --push \
                 -t "${REGISTRY}/${S}:${IMAGE_TAG}" \
                 -t "${REGISTRY}/${S}:latest" \
                 "./${S}"
+            else
+              echo "⚠️ Dockerfile not found for $S — skipping"
             fi
           done
-
-      - name: Generate images.json
-        run: |
-          set -euo pipefail
-
-          mkdir -p images
-          cat <<EOF > images/images.json
-          {
-            "application-service": "${REGISTRY}/application-service:${IMAGE_TAG}",
-            "patient-service": "${REGISTRY}/patient-service:${IMAGE_TAG}",
-            "order-service": "${REGISTRY}/order-service:${IMAGE_TAG}"
-          }
-          EOF
-
-          jq . images/images.json
-
-      - name: Upload images artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: images-dev
-          path: images/images.json

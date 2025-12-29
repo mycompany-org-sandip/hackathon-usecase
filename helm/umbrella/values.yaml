@@ -1,19 +1,13 @@
 # umbrella/values.yaml
 
-global:
-  imagePullSecrets:
-    - name: regcred
-  keyvault:
-    enabled: false  # optional, leave as false if not using
-
 application-service:
   image:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/application-service
-    tag:  v2.0.1
+    tag: v2.0.1
     imagePullPolicy: IfNotPresent
+  replicaCount: 1
   service:
     port: 3001
-  replicaCount: 1
   resources: {}
   env: []
 
@@ -22,9 +16,9 @@ order-service:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/order-service
     tag: v2.0.1
     imagePullPolicy: IfNotPresent
+  replicaCount: 1
   service:
     port: 3002
-  replicaCount: 1
   resources: {}
   env: []
 
@@ -33,8 +27,8 @@ patient-service:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/patient-service
     tag: v2.0.1
     imagePullPolicy: IfNotPresent
+  replicaCount: 1
   service:
     port: 3003
-  replicaCount: 1
   resources: {}
   env: []

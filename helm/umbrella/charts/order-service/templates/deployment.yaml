@@ -14,10 +14,6 @@ spec:
       labels:
         app: {{ include "order-service.name" . }}
     spec:
-      {{- if .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-      {{- toYaml .Values.global.imagePullSecrets | nindent 6 }}
-      {{- end }}
       containers:
         - name: {{ include "order-service.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

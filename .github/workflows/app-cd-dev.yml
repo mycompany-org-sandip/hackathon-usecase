@@ -28,21 +28,6 @@ jobs:
         uses: actions/checkout@v4
 
       # --------------------------------------------------
-      # Download images artifact from CI
-      # --------------------------------------------------
-      - name: Download image metadata
-        uses: actions/download-artifact@v4
-        with:
-          name: images-dev
-          path: images
-
-      # --------------------------------------------------
-      # Install jq (GitHub runner doesn't guarantee it)
-      # --------------------------------------------------
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      # --------------------------------------------------
       # Authenticate to GCP (Workload Identity Federation)
       # --------------------------------------------------
       - name: Authenticate to GCP
@@ -51,11 +36,9 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER_DEV }}
           service_account: ${{ env.DEV_SA }}
           project_id: ${{ env.PROJECT_ID }}
-          create_credentials_file: true
-          export_environment_variables: true
 
       # --------------------------------------------------
-      # Setup gcloud + install GKE auth plugin (CRITICAL)
+      # Setup gcloud + GKE auth plugin
       # --------------------------------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
@@ -63,9 +46,6 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           install_components: gke-gcloud-auth-plugin
 
-      # --------------------------------------------------
-      # Enable modern GKE authentication
-      # --------------------------------------------------
       - name: Enable GKE auth plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
@@ -85,19 +65,12 @@ jobs:
         uses: azure/setup-helm@v3
 
       # --------------------------------------------------
-      # Deploy via Helm
+      # 🚀 Deploy via Helm (NO SECRETS, NO OVERRIDES)
       # --------------------------------------------------
       - name: Deploy with Helm
         run: |
-          echo "📦 images.json:"
-          cat images/images.json
-
           helm upgrade --install hackathon helm/umbrella \
             --namespace dev \
             --create-namespace \
             --atomic \
-            --timeout 10m \
-            --debug \
-            --set application.image=$(jq -r '."application-service"' images/images.json) \
-            --set patient.image=$(jq -r '."patient-service"' images/images.json) \
-            --set order.image=$(jq -r '."order-service"' images/images.json)
+            --timeout 10m

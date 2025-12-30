@@ -1,6 +1,6 @@
 image:
   repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/application-service
-  tag: v2.0.1
+  tag: sha-b1deb2eaddf57a6e0d137b2b8a246e948a8c330b
 
 imagePullPolicy: IfNotPresent
 

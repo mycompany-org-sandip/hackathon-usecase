@@ -14,9 +14,10 @@ spec:
       labels:
         app: {{ include "patient-service.name" . }}
     spec:
+      serviceAccountName: {{ .Values.global.serviceAccount.name }}
       containers:
         - name: {{ include "patient-service.name" . }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ default .Values.global.image.tag .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}

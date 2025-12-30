@@ -19,6 +19,7 @@ jobs:
       DEV_SA: ${{ secrets.DEV_SA }}
       DEV_GKE_CLUSTER: ${{ secrets.DEV_GKE_CLUSTER }}
       DEV_GKE_REGION: ${{ secrets.DEV_GKE_REGION }}
+      IMAGE_TAG: sha-${{ github.sha }}
 
     steps:
       # --------------------------------------------------
@@ -69,8 +70,11 @@ jobs:
       # --------------------------------------------------
       - name: Deploy with Helm
         run: |
-          helm upgrade --install hackathon helm/umbrella \
-            --namespace dev \
-            --create-namespace \
-            --atomic \
-            --timeout 10m
+         helm upgrade --install hackathon helm/umbrella \
+         --namespace dev \
+         --create-namespace \
+         --timeout 20m \
+         --set application-service.image.tag=${IMAGE_TAG} \
+         --set order-service.image.tag=${IMAGE_TAG} \
+         --set patient-service.image.tag=${IMAGE_TAG}
+

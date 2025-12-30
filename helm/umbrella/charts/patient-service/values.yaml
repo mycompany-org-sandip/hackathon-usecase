@@ -1,6 +1,6 @@
 image:
   repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/patient-service
-  tag: v2.0.1
+  tag: ""
 
 imagePullPolicy: IfNotPresent
 

@@ -1,5 +1,6 @@
 terraform {
   backend "gcs" {}
+
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -8,13 +9,10 @@ terraform {
   }
 }
 
-
-
 provider "google" {
   project = var.project_id
   region  = var.region
 }
-
 
 # -------------------------------
 # Required APIs (ensure default SAs and services exist)
@@ -50,7 +48,12 @@ resource "google_project_service" "serviceusage" {
 }
 
 resource "time_sleep" "wait_for_compute_sa" {
-  depends_on      = [google_project_service.compute, google_project_service.iam, google_project_service.container]
+  depends_on = [
+    google_project_service.compute,
+    google_project_service.iam,
+    google_project_service.container
+  ]
+
   create_duration = "180s"
 }
 
@@ -99,8 +102,6 @@ module "iam" {
 # -------------------------------
 # Secret Manager Module
 # -------------------------------
-
-
 module "secret_manager" {
   source        = "../../modules/secret_manager"
   project_id    = var.project_id
@@ -113,8 +114,6 @@ module "secret_manager" {
     "another-secret" = {}
   }
 }
-
-
 
 # -------------------------------
 # Artifact Registry
@@ -130,8 +129,6 @@ module "artifact_registry" {
 # -------------------------------
 # GKE Cluster
 # -------------------------------
-
-
 module "gke" {
   source = "../../modules/gke"
 
@@ -144,15 +141,3 @@ module "gke" {
   node_service_account = var.node_service_account
   deletion_protection  = var.deletion_protection
 }
-
-
-
-
-# -------------------------------
-# End of configuration
-# -------------------------------
-
-#HVDASVFJSFVJHSA#
-#HGDVAVASVDFHJ#
-#DHGAHGASGHS#
-#GDSAFDASGDFGFV#

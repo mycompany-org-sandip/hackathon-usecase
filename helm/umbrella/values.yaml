@@ -64,6 +64,10 @@ application-service:
 order-service:
   replicaCount: 1
 
+  serviceAccount:
+    enabled: true
+    name: cloudsql-accessor   # <-- updated to the SA with Cloud SQL permissions
+
   image:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/order-service
     tag: "__REQUIRED__"

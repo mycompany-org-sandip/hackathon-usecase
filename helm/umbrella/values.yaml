@@ -1,39 +1,122 @@
-# umbrella/values.yaml
-
+# --------------------------------------------------
+# Global settings (shared by all services)
+# --------------------------------------------------
 global:
   serviceAccount:
     enabled: true
     name: artifact-puller-sa
 
+  # -------------------------
+  # Database configuration
+  # -------------------------
+  database:
+    type: postgres
+    host: 127.0.0.1            # Cloud SQL Proxy
+    port: 5432
+    name: hackathon
+    user: postgres
+    passwordSecret: db-credentials
+
+  # -------------------------
+  # Cloud SQL Auth Proxy
+  # -------------------------
+  cloudSql:
+    enabled: true
+    instance: massive-sandbox-477717-k3:us-central1:hackathon-db
+    saSecret: cloudsql-sa-secret
+
+
+# --------------------------------------------------
+# Application Service (Node / API Gateway)
+# --------------------------------------------------
 application-service:
+  replicaCount: 1
+
   image:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/application-service
-    tag: "__REQUIRED__"   # must be overridden by CD
+    tag: "__REQUIRED__"
     imagePullPolicy: IfNotPresent
-  replicaCount: 1
+
   service:
     port: 3001
-  resources: {}
-  env: []
 
+  resources: {}
+
+  env:
+    - name: DB_HOST
+      value: "127.0.0.1"
+    - name: DB_PORT
+      value: "5432"
+    - name: DB_NAME
+      value: "hackathon"
+    - name: DB_USER
+      value: "postgres"
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: password
+
+
+# --------------------------------------------------
+# Order Service (Spring Boot)
+# --------------------------------------------------
 order-service:
+  replicaCount: 1
+
   image:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/order-service
     tag: "__REQUIRED__"
     imagePullPolicy: IfNotPresent
-  replicaCount: 1
-  service:
-    port: 3002
-  resources: {}
-  env: []
 
+  service:
+    port: 8080
+
+  resources: {}
+
+  env:
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://127.0.0.1:5432/hackathon"
+    - name: SPRING_DATASOURCE_USERNAME
+      value: "postgres"
+    - name: SPRING_DATASOURCE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: password
+    - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+      value: "update"
+    - name: SPRING_JPA_SHOW_SQL
+      value: "true"
+
+
+# --------------------------------------------------
+# Patient Service (Node.js)
+# --------------------------------------------------
 patient-service:
+  replicaCount: 1
+
   image:
     repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/patient-service
     tag: "__REQUIRED__"
     imagePullPolicy: IfNotPresent
-  replicaCount: 1
+
   service:
-    port: 3003
+    port: 3000
+
   resources: {}
-  env: []
+
+  env:
+    - name: DB_HOST
+      value: "127.0.0.1"
+    - name: DB_PORT
+      value: "5432"
+    - name: DB_NAME
+      value: "hackathon"
+    - name: DB_USER
+      value: "postgres"
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: password

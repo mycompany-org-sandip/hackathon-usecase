@@ -1,7 +1,6 @@
 image:
   repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/application-service
-  tag: "__REQUIRED__"   # must be overridden by CI/CD
-
+  tag: "__REQUIRED__"   # overridden by CD
 imagePullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -10,4 +9,18 @@ service:
   port: 3001
 
 resources: {}
-env: []
+
+env:
+  - name: DB_HOST
+    value: "127.0.0.1"
+  - name: DB_PORT
+    value: "5432"
+  - name: DB_NAME
+    value: "hackathon"
+  - name: DB_USER
+    value: "postgres"
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: password

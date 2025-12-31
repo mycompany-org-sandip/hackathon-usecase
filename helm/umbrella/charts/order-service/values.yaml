@@ -1,14 +1,27 @@
 image:
   repository: us-central1-docker.pkg.dev/massive-sandbox-477717-k3/dev-docker/order-service
-  tag: "__REQUIRED__"   # must be overridden by CI/CD
+  tag: "__REQUIRED__"
 
 imagePullPolicy: IfNotPresent
 
 replicaCount: 1
 
 service:
-  port: 3002
+  port: 8080
 
 resources: {}
 
-env: []
+env:
+  - name: SPRING_DATASOURCE_URL
+    value: "jdbc:postgresql://127.0.0.1:5432/hackathon"
+  - name: SPRING_DATASOURCE_USERNAME
+    value: "postgres"
+  - name: SPRING_DATASOURCE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: password
+  - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+    value: "update"
+  - name: SPRING_JPA_SHOW_SQL
+    value: "true"

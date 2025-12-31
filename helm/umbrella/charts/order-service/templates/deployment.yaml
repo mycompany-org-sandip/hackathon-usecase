@@ -17,16 +17,44 @@ spec:
       {{- if .Values.global.serviceAccount.enabled }}
       serviceAccountName: {{ .Values.global.serviceAccount.name | quote }}
       {{- end }}
+
       containers:
+        # -------------------------
+        # Order Service (Spring Boot)
+        # -------------------------
         - name: {{ include "order-service.name" . }}
           image: "{{ required "ERROR: image.repository is required for order-service" .Values.image.repository }}:{{ required "ERROR: image.tag is required for order-service" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
+
           env:
             {{- range .Values.env }}
             - name: {{ .name }}
+              {{- if .value }}
               value: {{ .value | quote }}
+              {{- else if .valueFrom }}
+              valueFrom:
+{{ toYaml .valueFrom | nindent 16 }}
+              {{- end }}
             {{- end }}
+
           resources:
 {{- toYaml .Values.resources | nindent 12 }}
+
+        # -------------------------
+        # Cloud SQL Auth Proxy
+        # -------------------------
+        {{- if .Values.global.cloudSql.enabled }}
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+          args:
+            - "--port=5432"
+            - "{{ .Values.global.cloudSql.instance }}"
+          securityContext:
+            runAsNonRoot: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        {{- end }}
